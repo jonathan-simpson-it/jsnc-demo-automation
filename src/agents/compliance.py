@@ -15,9 +15,10 @@ class ComplianceAgent:
 
     def invoke(self, query: str) -> ComplianceCheck:
         final = self.graph.invoke({
-            "query": query, "agent_type": "compliance",
+            "query": query, "agent_type": "compliance", "agent_type_forced": True,
             "retrieved": "", "narrowed": "", "answer": "",
             "verified": False, "citations": [], "conversation_history": [],
+            "vector_store": self.vector_store, "trace": [],
         })
         answer = final.get("answer", "")
         result = ComplianceCheck(**PARSERS["compliance"](answer))

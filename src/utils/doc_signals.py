@@ -95,11 +95,11 @@ def extract_doc_signals(
         if count >= 2:
             positive_signals[bigram] = 2
 
-    # Generate negative signals from commonly shared terms
-    # These are terms that appear in many different document types
-    negative_signals: dict[str, int] = {
-        'the': 0, 'and': 0, 'for': 0, 'that': 0, 'this': 0,
-    }
+    # Negative signals are intentionally empty: the old implementation emitted
+    # only weight-0 stop words, which never affected detection. Keeping the
+    # slot (and the merge logic in search.py) preserves the API shape in case
+    # corpus-level negative signals are added later.
+    negative_signals: dict[str, int] = {}
 
     return positive_signals, negative_signals
 

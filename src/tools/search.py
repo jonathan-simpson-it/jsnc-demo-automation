@@ -350,7 +350,7 @@ def _detect_document(query: str, vector_store: VectorStore) -> str | None:
         else:
             all_signals[doc_name] = (pos, neg)
 
-    # Score each document: (total_score, positive_hits, max_signal)
+    # Score each document: (total_score, max_signal, positive_hits)
     best_doc = None
     best_tuple = (0, 0, 0)
     for doc_name, (pos_signals, neg_signals) in all_signals.items():
@@ -368,8 +368,11 @@ def _detect_document(query: str, vector_store: VectorStore) -> str | None:
 
         if total <= 0:
             continue
-        # Tie-break: more distinct positive hits, then stronger max signal
-        score_tuple = (total, hits, max_signal)
+        # Tie-break: strongest single signal first, then more distinct hits.
+        # (Previously hits came first, letting two weak generic hits beat one
+        # strong domain signal — e.g. memo's revenue+growth vs the annual
+        # report's revenue on "year-over-year revenue growth".)
+        score_tuple = (total, max_signal, hits)
         if score_tuple > best_tuple:
             best_tuple = score_tuple
             best_doc = doc_name
@@ -389,7 +392,8 @@ def _load_auto_signals(vector_store: VectorStore) -> dict[str, tuple[dict[str, i
 
     At ingest time, TF-IDF keywords are stored in each collection's metadata.
     This function reads them and returns a signals dict compatible with
-    _DOC_SIGNALS.
+    _DOC_SIGNALS. Results are cached; call invalidate_auto_signals_cache()
+    after ingesting or deleting documents.
     """
     global _auto_signals_cache
     if _auto_signals_cache is not None:
@@ -433,6 +437,14 @@ def _load_auto_signals(vector_store: VectorStore) -> dict[str, tuple[dict[str, i
     return signals
 
 
+def invalidate_auto_signals_cache() -> None:
+    """Drop the cached auto-signals so the next detection re-reads ChromaDB.
+
+    Must be called after documents are ingested or deleted, otherwise new
+    uploads stay invisible to document detection until the process restarts.
+    """
+    global _auto_signals_cache
+    _auto_signals_cache = None
 
 
 def create_search_tool(vector_store: VectorStore):

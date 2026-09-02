@@ -1,7 +1,9 @@
 """LangGraph StateGraph for the PE AI agent pipeline."""
 
+import operator
 import re
-from typing import Literal, TypedDict
+import time
+from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_deepseek import ChatDeepSeek
@@ -19,7 +21,7 @@ from src.agents.prompts import (
     is_analysis_query,
     says_not_found,
 )
-from src.tools.search import create_search_tool, detect_document
+from src.tools.search import create_search_tool
 from src.utils.llm_cache import llm_cache
 from src.vector_store.chroma import VectorStore
 
@@ -30,12 +32,41 @@ from src.vector_store.chroma import VectorStore
 class AgentState(TypedDict):
     query: str
     agent_type: Literal["due_diligence", "term_sheet", "lp_report", "compliance"]
+    agent_type_forced: bool
     retrieved: str
     narrowed: str
     answer: str
     verified: bool
     citations: list[str]
     conversation_history: list[dict]
+    vector_store: Any
+    # Reducer required: langgraph >= 1.x overwrites plain list fields per node
+    trace: Annotated[list[dict], operator.add]
+
+
+# ---------------------------------------------------------------------------
+# Node tracing: records per-node wall time in execution order
+# ---------------------------------------------------------------------------
+def _traced(name: str):
+    """Decorator that appends {node, ms} to state['trace'] after each node."""
+
+    def deco(fn):
+        def wrapper(state: AgentState) -> dict:
+            start = time.monotonic()
+            updates = fn(state)
+            elapsed = round((time.monotonic() - start) * 1000)
+            updates["trace"] = [{"node": name, "ms": elapsed}]
+            return updates
+
+        return wrapper
+
+    return deco
+
+
+def _get_store(state: AgentState) -> VectorStore:
+    """Use the store injected by the caller, falling back to the default."""
+    store = state.get("vector_store")
+    return store or VectorStore()
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +144,13 @@ def _parse_due_diligence(text: str) -> dict:
                 sections.setdefault("opps_list", []).append(stripped[2:])
 
     answer = sections.get("answer", "")
+    summary = clean_citations(answer or sections.get("summary", ""))
+    if not summary:
+        # Free-form answers (verify/wide_search rescue responses don't emit
+        # section headers) — use the whole text instead of dropping it.
+        summary = clean_citations(text)
     return {
-        "summary": clean_citations(answer or sections.get("summary", "")) or "Analysis completed",
+        "summary": summary or "Analysis completed",
         "risks": [clean_citations(r) for r in sections.get("risks_list", [])],
         "opportunities": [clean_citations(o) for o in sections.get("opps_list", [])],
         "recommendation": clean_citations(sections.get("recommendation", "")) or "Further analysis needed",
@@ -225,6 +261,44 @@ def _make_llm(temperature: float = 0) -> ChatDeepSeek:
     return ChatDeepSeek(model=settings.deepseek_model, temperature=temperature, api_key=settings.deepseek_api_key)
 
 
+def _format_history(history: list[dict], limit: int = 6) -> str:
+    """Format recent conversation history for prompt injection."""
+    lines = []
+    for msg in history[-limit:]:
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        lines.append(f"{role}: {msg.get('content', '')}")
+    return "\n".join(lines)
+
+
+def _has_content(text: str) -> bool:
+    """True when the response carries real content beyond citation tags.
+
+    The model occasionally returns a bare "[Source N: ...]" line with no
+    answer text; such responses must be treated as failures, not answers.
+    """
+    if not text or not text.strip():
+        return False
+    return bool(clean_citations(text).strip())
+
+
+def _answer_ok(text: str) -> bool:
+    """An answer is usable when it has substantive content and does not
+    state the information was not found."""
+    return _has_content(text) and not says_not_found(text)
+
+
+def _invoke_text(llm, messages, retries: int = 2) -> str:
+    """Invoke the LLM, retrying when the response is empty or citation-only."""
+    last = ""
+    for _ in range(retries):
+        resp = llm.invoke(messages)
+        text = resp.content if isinstance(resp.content, str) else str(resp.content)
+        last = text
+        if _has_content(text):
+            return text
+    return last
+
+
 def _extract_citations(text: str) -> list[str]:
     return re.findall(r"\[Source[s]?[\s\d]*:\s*([^\]]+)\]", text)
 
@@ -266,6 +340,7 @@ def _select_sources_llm(query: str, sources: list[tuple[int, str]]) -> list[int]
 # ---------------------------------------------------------------------------
 # Graph nodes
 # ---------------------------------------------------------------------------
+@_traced("classify")
 def classify_node(state: AgentState) -> dict:
     query = state["query"]
     cached = llm_cache.get(query, prefix="classify")
@@ -277,13 +352,29 @@ def classify_node(state: AgentState) -> dict:
         llm_cache.set(query, kw, prefix="classify")
         return {"agent_type": kw}
 
-    # LLM fallback
-    prompt = """Classify into: due_diligence (default), term_sheet, lp_report, or compliance.
-Respond with ONLY the category name."""
+    # LLM fallback (with conversation context for ambiguous follow-ups).
+    # Framed as "specialized or none?" so due_diligence is the robust default:
+    # a 4-way pick invites the model to invent a specialized label for any
+    # regulatory-sounding content question.
+    prompt = """Is the user's question about one of these specialized tasks?
+- term_sheet: extracting term-sheet fields from a financing document (valuation, liquidation preference, anti-dilution, board seats, ESOP, protective provisions, exclusivity, governing law)
+- lp_report: quarterly fund/portfolio reporting to limited partners (fund performance, portfolio update, LP report)
+- compliance: explicitly asking to check a document against regulations ("is it compliant", "compliance check", SFC, AMLO, HKMA, Companies Ordinance, KYC, AML)
+
+Factual or analytical questions about documents are NOT specialized — answer "none".
+Respond with ONLY one word: term_sheet, lp_report, compliance, or none."""
+    history = state.get("conversation_history") or []
+    messages: list = [SystemMessage(content=prompt)]
+    if history:
+        history_text = (
+            "Recent conversation (for context only):\n"
+            f"{_format_history(history)}\n\n"
+        )
+        messages.append(HumanMessage(content=history_text))
+    messages.append(HumanMessage(content=query))
     try:
-        resp = _make_llm().invoke([SystemMessage(content=prompt), HumanMessage(content=query)])
-        cls = resp.content.strip().lower()
-        for valid in ("due_diligence", "term_sheet", "lp_report", "compliance"):
+        cls = _invoke_text(_make_llm(), messages).strip().lower()
+        for valid in ("term_sheet", "lp_report", "compliance"):
             if valid in cls:
                 llm_cache.set(query, valid, prefix="classify")
                 return {"agent_type": valid}
@@ -294,18 +385,20 @@ Respond with ONLY the category name."""
     return {"agent_type": "due_diligence"}
 
 
+@_traced("search")
 def search_node(state: AgentState) -> dict:
     query = state["query"]
     cached = llm_cache.get(query, prefix=state["agent_type"])
     if cached:
         return {"retrieved": cached}
 
-    vs = VectorStore()
+    vs = _get_store(state)
     retrieved = create_search_tool(vs).invoke(query)
     llm_cache.set(query, retrieved, prefix=state["agent_type"])
     return {"retrieved": retrieved}
 
 
+@_traced("narrow")
 def narrow_node(state: AgentState) -> dict:
     retrieved = state["retrieved"]
     if not retrieved or retrieved.startswith("No relevant documents"):
@@ -330,80 +423,123 @@ def narrow_node(state: AgentState) -> dict:
     return {"narrowed": _filter_sources(retrieved, selected, sources) if selected and len(selected) < len(sources) else retrieved}
 
 
+@_traced("answer")
 def answer_node(state: AgentState) -> dict:
     agent_type = state["agent_type"]
     config_prompt = _PROMPT_BUILDERS[agent_type]
 
+    history_block = ""
+    if state.get("conversation_history"):
+        history_block = (
+            "\n\n## Conversation History:\n"
+            f"{_format_history(state['conversation_history'])}"
+        )
+
     if agent_type == "due_diligence":
         mode = "analysis" if is_analysis_query(state["query"]) else "factual"
-        answer_prompt = f"Answer using ONLY the retrieved documents.\n\n{GROUNDING_RULES}\n\n## Retrieved Documents:\n{state['narrowed']}\n\n## User Question:\n{state['query']}"
+        answer_prompt = (
+            f"Answer using ONLY the retrieved documents.\n\n{GROUNDING_RULES}"
+            f"\n\n## Retrieved Documents:\n{state['narrowed']}"
+            f"\n\n## User Question:\n{state['query']}"
+            f"{history_block}"
+        )
     else:
-        answer_prompt = config_prompt(state["narrowed"], state["query"])
+        answer_prompt = config_prompt(state["narrowed"], state["query"]) + history_block
 
-    resp = _make_llm(temperature=settings.deepseek_temperature).invoke([
-        SystemMessage(content=_SYSTEM_PROMPTS[agent_type]),
-        HumanMessage(content=answer_prompt),
-    ])
-    answer = resp.content if isinstance(resp.content, str) else str(resp.content)
-    return {"answer": answer, "citations": _extract_citations(answer), "verified": not says_not_found(answer)}
+    answer = _invoke_text(
+        _make_llm(temperature=settings.deepseek_temperature),
+        [SystemMessage(content=_SYSTEM_PROMPTS[agent_type]), HumanMessage(content=answer_prompt)],
+    )
+    # An empty/citation-only/not-found answer triggers the verify/wide_search loop
+    found = _answer_ok(answer)
+    return {"answer": answer, "citations": _extract_citations(answer), "verified": found}
 
 
+@_traced("verify")
 def verify_node(state: AgentState) -> dict:
+    system_prompt = _SYSTEM_PROMPTS.get(
+        state.get("agent_type"), _SYSTEM_PROMPTS["due_diligence"]
+    )
     try:
-        verified = _make_llm().invoke([
-            SystemMessage(content=_SYSTEM_PROMPTS["due_diligence"]),
+        verified = _invoke_text(_make_llm(), [
+            SystemMessage(content=system_prompt),
             HumanMessage(content=VERIFICATION_PROMPT.format(
-                query=state["query"], answer=state["answer"][:800], retrieved=state["narrowed"]
+                query=state["query"], retrieved=state["narrowed"]
             )),
-        ]).content
-        if isinstance(verified, str) and not says_not_found(verified):
+        ])
+        if _answer_ok(verified):
             return {"answer": verified, "citations": _extract_citations(verified), "verified": True}
     except Exception:
         pass
     return {"verified": False}
 
 
+def _build_wide_context(vs: VectorStore, queries: list[str], limit: int = 30) -> str:
+    """Build a rescue-mode retrieval context with fair per-document sampling.
+
+    Searches ALL collections (no document detection — misrouting is a common
+    failure mode by the time we reach wide_search) and interleaves chunks
+    round-robin across documents. A pure score-ordered global list lets one
+    over-represented document (e.g. a memo mentioning the same fund name as
+    the CV) drown out the document that actually answers the question.
+    """
+    seen: set[str] = set()
+    per_doc: dict[str, list[dict]] = {}
+    for q in queries:
+        for r in vs.search(q, k=40):
+            key = r["content"][:100]
+            if key in seen:
+                continue
+            seen.add(key)
+            fn = r["metadata"].get("filename", "?")
+            per_doc.setdefault(fn, []).append(r)
+
+    picked: list[dict] = []
+    for rnd in range(max(len(chunks) for chunks in per_doc.values())):
+        for doc_chunks in per_doc.values():
+            if rnd < len(doc_chunks):
+                picked.append(doc_chunks[rnd])
+                if len(picked) >= limit:
+                    break
+        if len(picked) >= limit:
+            break
+
+    formatted = []
+    for r in picked:
+        m = r["metadata"]
+        formatted.append(
+            f"[Source {len(formatted)+1}: {m.get('filename','?')}, "
+            f"page {m.get('page',1)}, line {m.get('line',1)}]\n{r['content']}"
+        )
+    return "\n\n".join(formatted)
+
+
+@_traced("wide_search")
 def wide_search_node(state: AgentState) -> dict:
+    """Deep re-search after verify failed."""
     query = state["query"]
-    vs = VectorStore()
-    target = detect_document(query, vs)
+    vs = _get_store(state)
 
     queries = [query]
     keywords = [w for w in re.findall(r"[a-zA-Z0-9]+", query) if w.lower() not in _STOP_WORDS and len(w) > 1]
     if keywords:
         queries.append(" ".join(keywords))
 
-    formatted, seen = [], set()
-    for q in queries:
-        results = vs.search(q, k=60 if target else 40, source_filter=target) if target else vs.search(q, k=40)
-        kept = 0
-        for r in results:
-            key = r["content"][:100]
-            if key in seen:
-                continue
-            seen.add(key)
-            kept += 1
-            if kept > 30:
-                break
-            m = r["metadata"]
-            formatted.append(f"[Source {len(formatted)+1}: {m.get('filename','?')}, page {m.get('page',1)}, line {m.get('line',1)}]\n{r['content']}")
-            if len(formatted) >= 60:
-                break
-        if len(formatted) >= 60:
-            break
-
-    wide_text = "\n\n".join(formatted)
+    wide_text = _build_wide_context(vs, queries)
     if not wide_text:
         return {"verified": True}
 
     try:
-        verified = _make_llm().invoke([
-            SystemMessage(content=_SYSTEM_PROMPTS["due_diligence"]),
+        system_prompt = _SYSTEM_PROMPTS.get(
+            state.get("agent_type"), _SYSTEM_PROMPTS["due_diligence"]
+        )
+        verified = _invoke_text(_make_llm(), [
+            SystemMessage(content=system_prompt),
             HumanMessage(content=VERIFICATION_PROMPT.format(
-                query=query, answer=state["answer"][:800], retrieved=wide_text
+                query=query, retrieved=wide_text
             )),
-        ]).content
-        if isinstance(verified, str) and not says_not_found(verified):
+        ])
+        if _answer_ok(verified):
             return {"answer": verified, "citations": _extract_citations(verified), "verified": True}
     except Exception:
         pass
@@ -414,6 +550,11 @@ def wide_search_node(state: AgentState) -> dict:
 # ---------------------------------------------------------------------------
 # Conditional edges
 # ---------------------------------------------------------------------------
+def should_classify(state: AgentState) -> str:
+    """Skip LLM/keyword classification when the caller forced an agent type."""
+    return "search" if state.get("agent_type_forced") else "classify"
+
+
 def should_verify(state: AgentState) -> str:
     return "end" if state.get("verified", True) else "verify"
 
@@ -432,7 +573,9 @@ def build_agent_graph() -> StateGraph:
                      ("verify", verify_node), ("wide_search", wide_search_node)]:
         graph.add_node(name, fn)
 
-    graph.set_entry_point("classify")
+    graph.set_conditional_entry_point(
+        should_classify, {"classify": "classify", "search": "search"}
+    )
     graph.add_edge("classify", "search")
     graph.add_edge("search", "narrow")
     graph.add_edge("narrow", "answer")

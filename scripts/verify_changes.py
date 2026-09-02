@@ -111,8 +111,13 @@ def test_says_not_found():
     assert says_not_found("The documents do not contain this information")
     assert says_not_found("I cannot find any data about that")
     assert says_not_found("No information available in the sources")
+    assert says_not_found("ANSWER: CONFIRMED NOT FOUND")
     assert not says_not_found("The company has $4M ARR")
     assert not says_not_found("Sarah Chen is the CEO")
+    # Regression: boilerplate from the grounding rules must NOT trigger the
+    # verify/wide_search loop on every answer
+    assert not says_not_found("RECOMMENDATION: Insufficient data to recommend.")
+    assert not says_not_found("PRICE_PER_SHARE: Not available")
     print("  ✅ says_not_found detects not-found phrases correctly")
 
 
@@ -258,11 +263,14 @@ def test_e2e_mock_pipeline():
 # Test 12: Graph conditional edges (verify → end vs wide_search)
 # ---------------------------------------------------------------------------
 def test_graph_conditional_edges():
-    from src.agents.graph import should_verify, after_verify
+    from src.agents.graph import should_classify, should_verify, after_verify
     assert should_verify({"verified": True}) == "end"
     assert should_verify({"verified": False}) == "verify"
     assert after_verify({"verified": True}) == "end"
     assert after_verify({"verified": False}) == "wide_search"
+    # Forced agent types skip classification entirely
+    assert should_classify({"agent_type_forced": True}) == "search"
+    assert should_classify({"agent_type_forced": False}) == "classify"
     print("  ✅ Graph conditional edges route correctly")
 
 

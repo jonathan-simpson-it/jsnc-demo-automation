@@ -217,3 +217,33 @@ def test_router_routes_to_correct_agent():
             response = router.invoke("Analyze Acme Corp for investment")
             assert response.agent_type == "due_diligence"
             assert "summary" in response.result.lower() or "analysis" in response.result.lower()
+
+
+def test_dd_parser_keeps_freeform_answers():
+    """Regression: verify/wide_search rescue answers have no section headers.
+
+    The parser previously returned its "Analysis completed" fallback for such
+    answers, silently dropping the rescued content.
+    """
+    from src.agents.graph import _parse_due_diligence
+
+    text = ("Based on the retrieved documents, the candidate's current role at "
+            "Archbridge Capital Partners is **AI Engineer (Part-time)** "
+            "[Source 5: cv-jonathandevano-hkma.pdf, page 1, line 14].")
+    parsed = _parse_due_diligence(text)
+    assert "AI Engineer (Part-time)" in parsed["summary"]
+    assert "[Source" not in parsed["summary"]  # citations stripped
+    assert "Analysis completed" != parsed["summary"]
+
+
+def test_answer_content_validation():
+    """Regression: empty and citation-only responses are not usable answers."""
+    from src.agents.graph import _answer_ok, _has_content
+
+    assert not _has_content("")
+    assert not _has_content("   ")
+    assert not _has_content("[Source 2: memo.md, page 1, line 3]")
+    assert _has_content("Sarah Chen is the CEO [Source 2: memo.md, page 1, line 3]")
+    assert _answer_ok("Sarah Chen is the CEO of Acme Corp.")
+    assert not _answer_ok("[Source 2: memo.md, page 1, line 3]")
+    assert not _answer_ok("The documents do not contain this information")

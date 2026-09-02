@@ -15,9 +15,10 @@ class TermSheetExtractorAgent:
 
     def invoke(self, query: str) -> TermSheetData:
         final = self.graph.invoke({
-            "query": query, "agent_type": "term_sheet",
+            "query": query, "agent_type": "term_sheet", "agent_type_forced": True,
             "retrieved": "", "narrowed": "", "answer": "",
             "verified": False, "citations": [], "conversation_history": [],
+            "vector_store": self.vector_store, "trace": [],
         })
         answer = final.get("answer", "")
         result = TermSheetData(**PARSERS["term_sheet"](answer))

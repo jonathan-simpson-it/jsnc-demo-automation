@@ -71,7 +71,9 @@ class AgentQuery(BaseModel):
     """Input query for agent execution."""
 
     query: str
-    agent_type: str
+    agent_type: str | None = Field(
+        default=None, description="Force agent (None = auto-route)"
+    )
     document_ids: list[str] = Field(default_factory=list)
 
 

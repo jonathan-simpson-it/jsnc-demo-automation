@@ -106,6 +106,10 @@ class VectorStore:
         # Store auto-generated signals in collection metadata
         self._store_auto_signals(chunks)
 
+        # New documents must be visible to detection immediately
+        from src.tools.search import invalidate_auto_signals_cache
+        invalidate_auto_signals_cache()
+
     def _store_auto_signals(self, chunks: list[dict]) -> None:
         """Extract and store TF-IDF signals in per-document collection metadata."""
         import json
@@ -281,6 +285,10 @@ class VectorStore:
                 global_col.delete(ids=ids_to_delete)
         except Exception:
             pass
+
+        # Deleted documents must disappear from detection immediately
+        from src.tools.search import invalidate_auto_signals_cache
+        invalidate_auto_signals_cache()
 
         return True
 

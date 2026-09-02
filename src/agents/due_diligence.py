@@ -15,9 +15,10 @@ class DueDiligenceAgent:
 
     def invoke(self, query: str) -> DueDiligenceResult:
         final = self.graph.invoke({
-            "query": query, "agent_type": "due_diligence",
+            "query": query, "agent_type": "due_diligence", "agent_type_forced": True,
             "retrieved": "", "narrowed": "", "answer": "",
             "verified": False, "citations": [], "conversation_history": [],
+            "vector_store": self.vector_store, "trace": [],
         })
         answer = final.get("answer", "")
         result = DueDiligenceResult(**PARSERS["due_diligence"](answer))

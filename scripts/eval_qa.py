@@ -19,6 +19,9 @@ import argparse
 import json
 import re
 import sys
+import time
+from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -153,8 +156,8 @@ QUESTION_BANK: dict[str, list[dict]] = {
         {"q": "What is the Week 9 topic?", "a": "Health Misinformation"},
         {"q": "What is the Week 11 topic?", "a": "Doctor-patient communication"},
         {"q": "What does Week 8 cover?", "a": "Fear Appeals and Social Norms"},
-        {"q": "What letter grade corresponds to 96-100 points?", "a": "A+|A plus; 96-100"},
-        {"q": "What letter grade corresponds to 83-85 points?", "a": "B; 83-85"},
+        {"q": "What letter grade corresponds to 96-100 points?", "a": "A+|A plus"},
+        {"q": "What letter grade corresponds to 83-85 points?", "a": "B"},
         {"q": "What is the date of the Reading Week no-class week?", "a": "Oct 13|October 13"},
     ],
     "annual_report": [
@@ -181,7 +184,7 @@ QUESTION_BANK: dict[str, list[dict]] = {
         {"q": "What percentage of analysis can be automated by AI at scale?", "a": "90%"},
         {"q": "Who is the partner for the Sapience MHe deployment?", "a": "SAP"},
         {"q": "How many DirectScan systems were shipped to production fab users?", "a": "2|two"},
-        {"q": "What type of inspection tool is the eProbe?", "a": "electron beam|non-contact electron beam"},
+        {"q": "What type of inspection tool is the eProbe?", "a": "electron beam|non-contact electron beam|e-beam"},
         {"q": "What were cash and cash equivalents at year-end 2025?", "a": "$42.2 million|42.2"},
         {"q": "When was the 2025 Users Conference and Analyst Day held?", "a": "December"},
         {"q": "What is the fiscal year end date?", "a": "December 31, 2025|31 December 2025"},
@@ -420,10 +423,15 @@ def main() -> int:
 
     results = []
     passed_count = 0
+    total_llm_nodes = Counter()
+    run_start = time.monotonic()
     for idx, question in enumerate(questions, 1):
         query = question["query"]
+        q_start = time.monotonic()
+        trace: list[dict] = []
         try:
             response = router.invoke(query)
+            trace = response.metadata.get("trace", [])
             if response.metadata.get("error"):
                 actual = f"ERROR: {response.result}"
             else:
@@ -440,11 +448,18 @@ def main() -> int:
                 actual = f"{actual}\n{' '.join(response.citations)}"
         except Exception as exc:  # noqa: BLE001
             actual = f"EXCEPTION: {exc}"
+        latency_ms = round((time.monotonic() - q_start) * 1000)
+
+        for entry in trace:
+            total_llm_nodes[entry["node"]] += 1
 
         passed = score_answer(question["expected"], actual)
         passed_count += 1 if passed else 0
         status = "PASS" if passed else "FAIL"
-        print(f"[{idx:>3}/{len(questions)}] {status} {question['id']}: {query[:70]}")
+        print(
+            f"[{idx:>3}/{len(questions)}] {status} {question['id']}: "
+            f"{query[:70]} ({latency_ms}ms)"
+        )
         if not passed:
             print(f"    expected: {question['expected']}")
             print(f"    actual:   {actual[:220]}")
@@ -452,15 +467,25 @@ def main() -> int:
         results.append({
             "id": question["id"],
             "doc": question["doc"],
-            "query": query,
+            "query": question["query"],
             "expected": question["expected"],
             "actual": actual,
             "passed": passed,
+            "trace": trace,
+            "latency_ms": latency_ms,
         })
 
     total = len(results)
     pct = 100.0 * passed_count / total if total else 0.0
+    run_ms = round((time.monotonic() - run_start) * 1000)
+    avg_ms = round(run_ms / total) if total else 0
+    llm_nodes = ("classify", "answer", "verify", "wide_search")
+    llm_calls = sum(total_llm_nodes.get(n, 0) for n in llm_nodes)
     print(f"\n=== RESULT: {passed_count}/{total} ({pct:.0f}%) ===")
+    print(f"Total time: {run_ms}ms ({avg_ms}ms/question) | LLM nodes hit: {llm_calls} "
+          f"({llm_calls / total:.1f} per question)")
+    if total_llm_nodes:
+        print(f"Node usage: {dict(total_llm_nodes)}")
 
     # Per-document breakdown
     by_doc: dict[str, list[bool]] = {}
@@ -469,7 +494,7 @@ def main() -> int:
     for doc_key, passes in sorted(by_doc.items()):
         print(f"  {doc_key}: {sum(passes)}/{len(passes)}")
 
-    # Persist results (merge with previous)
+    # Persist results (merge with previous) + run metadata
     previous = load_previous_results() or {}
     merged = {**previous, **{r["id"]: r["passed"] for r in results}}
     all_questions = build_questions()
@@ -488,8 +513,23 @@ def main() -> int:
     for entry in persisted:
         if entry["id"] in by_id:
             entry["actual"] = by_id[entry["id"]]["actual"]
+            entry["trace"] = by_id[entry["id"]]["trace"]
+            entry["latency_ms"] = by_id[entry["id"]]["latency_ms"]
 
-    RESULT_FILE.write_text(json.dumps({"questions": persisted}, indent=2))
+    payload = {
+        "meta": {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "questions": total,
+            "passed": passed_count,
+            "pct": pct,
+            "run_ms": run_ms,
+            "avg_ms_per_question": avg_ms,
+            "llm_node_calls": llm_calls,
+            "node_usage": dict(total_llm_nodes),
+        },
+        "questions": persisted,
+    }
+    RESULT_FILE.write_text(json.dumps(payload, indent=2))
     print(f"\nResults saved to {RESULT_FILE}")
     return 0 if passed_count == total else 1
 

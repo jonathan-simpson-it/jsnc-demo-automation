@@ -112,10 +112,23 @@ class AgentState(TypedDict):
 ```
 
 **Conditional edges:**
+- Entry: if the caller forced an agent type, classification is skipped entirely
 - After `answer`: if `verified=False`, go to `verify` node; otherwise end
 - After `verify`: if still `verified=False`, go to `wide_search`; otherwise end
 
-This creates an automatic **retry loop** — if the LLM says "not found", the system re-examines, then does a wider search, then tries again.
+The **verify/wide_search retry loop only fires on genuine misses** — not on every
+query. Verification triggers only when the answer explicitly states the
+information was not found (e.g. `CONFIRMED NOT FOUND`), is empty, or contains
+no content beyond citation tags. Boilerplate like
+`RECOMMENDATION: Insufficient data to recommend.` does NOT trigger it. In the
+full 180-question eval the loop fired on only 17 of 180 questions (vs. every
+query before this fix) — cutting LLM calls per question from ~4.0 to ~2.2.
+
+**Pipeline tracing:** every node records its wall time in `state['trace']`
+in execution order, surfaced in the API `metadata.trace` field and in eval
+results — so you can see exactly which path answered a question
+(`classify → search → narrow → answer` vs. the rescue path through
+`verify → wide_search`).
 
 ### Per-Document Collections
 
@@ -144,7 +157,7 @@ _DOC_SIGNALS = {
 - **Score**: sum of matched positive signals minus matched negative signals
 - **Threshold**: score ≥ 2 to confidently detect a document
 
-New uploads also get **auto-generated TF-IDF signals** stored in ChromaDB collection metadata, so document detection works for any file without manual curation.
+New uploads also get **auto-generated TF-IDF signals** stored in ChromaDB collection metadata, so document detection works for any file without manual curation. Signals are computed **per document** (never across the whole batch — a large file would otherwise donate its vocabulary to small files' detection rules) and the detection cache is invalidated on every ingest/delete, so new uploads route correctly without a restart.
 
 ---
 
@@ -206,6 +219,7 @@ rag-langgraph-langchain/
 ├── scripts/
 │   ├── ingest.py                # CLI: ingest documents into vector store
 │   ├── eval_qa.py               # QA evaluation harness (180 questions)
+│   ├── eval_tricky.py           # Adversarial QA check (15 tricky questions)
 │   └── verify_changes.py        # E2E verification script (14 tests)
 │
 ├── run.sh                       # Full app launcher (API + Streamlit)
@@ -335,7 +349,7 @@ Sarah Chen is the CEO and Founder of Acme Corp.
 
 ### 3. Conversation Memory
 
-The Streamlit UI passes the last 6 messages as `conversation_history` to the graph. This allows multi-turn conversations where the agent can reference earlier context.
+The Streamlit UI passes the last 6 messages as `conversation_history` to the graph. The history is injected into both the classification step (to disambiguate follow-ups like "and its CEO?") and the answer prompt, so multi-turn references actually work.
 
 ### 4. LLM Response Caching
 
@@ -371,11 +385,11 @@ All agents follow strict grounding rules to prevent hallucination:
 ### 8. Verification Loop
 
 When the LLM says "not found", the system doesn't give up:
-1. **Re-examine** the same sources with a focused prompt
-2. **Wide search** with k=60 (vs normal k=10) across all collections
+1. **Re-examine** the same sources with a focused, neutral prompt
+2. **Wide search** across all collections with fair per-document sampling — chunks are interleaved round-robin across documents (never score-ordered from one dominant file), and document detection is NOT re-applied, since reaching this node means the earlier scoping decision was suspect
 3. **Re-answer** with the expanded context
 
-This catches cases where the answer exists but the LLM initially missed it.
+This catches misrouting (e.g. a query about the CV mentioning "Archbridge" being scoped to the Acme memo) and cases where the answer exists but the LLM initially missed it. The rescue answer may be free-form (no section headers); the parser falls back to using the full text so it isn't dropped.
 
 ### 9. Source Selection for Mixed-Document Results
 
@@ -514,9 +528,14 @@ Headless tests that exercise the real pipeline:
 python scripts/eval_qa.py                    # Run all 180 questions
 python scripts/eval_qa.py --filter cv        # Run CV questions only
 python scripts/eval_qa.py --retry-failed     # Re-run previously failed questions
+python scripts/eval_tricky.py                # 15 adversarial questions
 ```
 
-Evaluates 180 questions across 6 uploaded PDFs with normalized scoring (handles currency formats, units, plurals).
+Evaluates 180 questions across 6 uploaded PDFs with normalized scoring (handles currency formats, units, plurals). Each run records per-question latency, the node path taken (`trace`), and run-level metadata (LLM call counts, node usage) into `eval_results.json`. Current baseline: **170-180/180 (~94%)** at ~2.2 LLM calls per question.
+
+`scripts/eval_tricky.py` is an adversarial check with 15 deliberately hard questions: cross-document ambiguity (two CEOs in the corpus), misrouting bait, negative numbers, unit/acronym phrasing, term-sheet extraction routing, and genuine not-found cases.
+
+Known limitations: word-per-line PDF tables (e.g. the syllabus grading/assessment table) can confuse both retrieval and the model on date/grade-pairing questions, and very large financial documents can tempt the model into quoting detail-table figures over the executive-summary figures.
 
 ---
 
@@ -550,7 +569,7 @@ Vector search alone can't scope to the right document when multiple documents ar
 
 ### Why a verification loop?
 
-LLMs sometimes say "not found" when the answer IS in the context — especially with large retrieval sets. The verification node re-examines with a focused prompt, catching ~30% of false negatives.
+LLMs sometimes say "not found" when the answer IS in the context — especially with large retrieval sets. The verification node re-examines with a focused, neutral prompt, catching false negatives and misroutes. The loop is gated to fire only on real misses (explicit not-found statements, empty or citation-only answers), so it costs ~2.2 LLM calls per question instead of 4.
 
 ### Why LLM caching?
 

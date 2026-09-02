@@ -23,9 +23,12 @@ class RouterAgent:
         initial_state: AgentState = {
             "query": query,
             "agent_type": agent_type or "due_diligence",
+            "agent_type_forced": agent_type is not None,
             "retrieved": "", "narrowed": "", "answer": "",
             "verified": False, "citations": [],
             "conversation_history": conversation_history or [],
+            "vector_store": self.vector_store,
+            "trace": [],
         }
 
         try:
@@ -41,7 +44,11 @@ class RouterAgent:
                 agent_type=agent_type_final,
                 result=json.dumps(result_data, default=str),
                 citations=citations,
-                metadata={"query": query, "agent_type": agent_type_final},
+                metadata={
+                    "query": query,
+                    "agent_type": agent_type_final,
+                    "trace": final.get("trace", []),
+                },
             )
         except Exception as e:
             return AgentResponse(

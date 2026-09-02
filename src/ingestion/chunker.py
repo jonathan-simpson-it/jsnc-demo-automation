@@ -38,6 +38,7 @@ def chunk_documents(
         locations = doc.get("locations", [])
         text_chunks = splitter.split_text(doc["content"])
 
+        doc_chunks = []
         for i, chunk_text in enumerate(text_chunks):
             chunk_metadata = doc["metadata"].copy()
             chunk_metadata["chunk_index"] = i
@@ -52,18 +53,24 @@ def chunk_documents(
                 chunk_metadata["page"] = 1
                 chunk_metadata["line"] = 1
 
-            chunks.append({
+            doc_chunks.append({
                 "content": chunk_text,
                 "metadata": chunk_metadata,
                 "doc_type": doc.get("doc_type", "unknown"),
             })
 
-    # Generate TF-IDF auto-signals for this document
-    auto_signals = extract_doc_signals(chunks)
-    if auto_signals[0]:  # positive signals found
-        # Attach to the first chunk's metadata so VectorStore can read it
-        chunks[0]["metadata"]["auto_positive_signals"] = json.dumps(auto_signals[0])
-        chunks[0]["metadata"]["auto_negative_signals"] = json.dumps(auto_signals[1])
+        # Generate TF-IDF auto-signals PER DOCUMENT. Computing them over the
+        # whole batch lets large documents (e.g. a 489-chunk annual report)
+        # dominate the vocabulary, and the previous code attached that single
+        # batch-level signal set to the FIRST document's chunk only — so one
+        # document carried another document's routing terms.
+        auto_signals = extract_doc_signals(doc_chunks)
+        if auto_signals[0]:  # positive signals found
+            # Attach to the first chunk's metadata so VectorStore can read it
+            doc_chunks[0]["metadata"]["auto_positive_signals"] = json.dumps(auto_signals[0])
+            doc_chunks[0]["metadata"]["auto_negative_signals"] = json.dumps(auto_signals[1])
+
+        chunks.extend(doc_chunks)
 
     return chunks
 

@@ -15,9 +15,10 @@ class LPReportAgent:
 
     def invoke(self, query: str) -> LPReport:
         final = self.graph.invoke({
-            "query": query, "agent_type": "lp_report",
+            "query": query, "agent_type": "lp_report", "agent_type_forced": True,
             "retrieved": "", "narrowed": "", "answer": "",
             "verified": False, "citations": [], "conversation_history": [],
+            "vector_store": self.vector_store, "trace": [],
         })
         answer = final.get("answer", "")
         result = LPReport(**PARSERS["lp_report"](answer))
