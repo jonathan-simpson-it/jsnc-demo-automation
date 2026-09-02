@@ -111,7 +111,7 @@ class VectorStore:
         invalidate_auto_signals_cache()
 
     def _store_auto_signals(self, chunks: list[dict]) -> None:
-        """Extract and store TF-IDF signals in per-document collection metadata."""
+        """Store TF-IDF signals and summaries in collection metadata."""
         import json
 
         # Group chunks by filename
@@ -123,22 +123,54 @@ class VectorStore:
             by_filename[fn].append(chunk)
 
         for fn, fn_chunks in by_filename.items():
-            # Check if first chunk has auto signals
-            pos_raw = fn_chunks[0]["metadata"].get("auto_positive_signals")
-            neg_raw = fn_chunks[0]["metadata"].get("auto_negative_signals")
-            if not pos_raw:
+            first_meta = fn_chunks[0]["metadata"]
+            pos_raw = first_meta.get("auto_positive_signals")
+            summary = first_meta.get("auto_summary", "")
+
+            # Need at least one of signals or summary to write
+            if not pos_raw and not summary:
                 continue
 
             try:
                 col_name = _sanitize_collection_name(fn)
                 collection = self._chroma_client.get_collection(col_name)
-                # Update collection metadata with signals
                 existing_meta = collection.metadata or {}
-                existing_meta["auto_positive_signals"] = pos_raw
-                existing_meta["auto_negative_signals"] = neg_raw
+                if pos_raw:
+                    existing_meta["auto_positive_signals"] = pos_raw
+                    existing_meta["auto_negative_signals"] = (
+                        first_meta.get("auto_negative_signals", "{}")
+                    )
+                if summary:
+                    existing_meta["auto_summary"] = summary
                 collection.modify(metadata=existing_meta)
             except Exception:
                 pass
+
+    def list_documents_with_summaries(self) -> list[dict]:
+        """List documents with chunk counts and auto-generated summaries."""
+        documents = []
+        for col_name in self._list_doc_collections():
+            try:
+                col = self._chroma_client.get_collection(col_name)
+                count = col.count()
+                sample = col.get(limit=1)
+                filename = "unknown"
+                summary = ""
+                if sample and sample["metadatas"]:
+                    filename = sample["metadatas"][0].get(
+                        "filename", col_name
+                    )
+                col_meta = col.metadata or {}
+                summary = col_meta.get("auto_summary", "")
+                documents.append({
+                    "filename": filename,
+                    "collection": col_name,
+                    "chunks": count,
+                    "summary": summary,
+                })
+            except Exception:
+                continue
+        return documents
 
     def search(
         self,

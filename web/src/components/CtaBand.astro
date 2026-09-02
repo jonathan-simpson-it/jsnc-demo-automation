@@ -1,0 +1,11 @@
+---
+import { siteConfig } from '../data/siteConfig';
+const { headline, description, buttonText, buttonHref } = siteConfig.cta;
+---
+<section class="cta-band">
+  <div class="container">
+    <h2>{headline}</h2>
+    <p>{description}</p>
+    <a class="button button--ghost" href={buttonHref}>{buttonText}</a>
+  </div>
+</section>

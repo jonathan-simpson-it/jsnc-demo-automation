@@ -13,9 +13,9 @@ export default function StatusBadge() {
   }, []);
 
   const color = {
-    loading: "bg-yellow-400",
-    healthy: "bg-green-500",
-    error: "bg-red-400",
+    loading: "#eab308",
+    healthy: "#22c55e",
+    error: "#ef4444",
   }[status];
   const label = {
     loading: "Checking...",
@@ -24,8 +24,19 @@ export default function StatusBadge() {
   }[status];
 
   return (
-    <div className="flex items-center gap-2 text-xs text-muted">
-      <span className={`w-2 h-2 rounded-full ${color}`} />
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        fontSize: "0.72rem",
+        color: "var(--color-muted)",
+      }}
+    >
+      <span
+        className="w-2 h-2 rounded-full"
+        style={{ background: color, flexShrink: 0 }}
+      />
       <span>{label}</span>
     </div>
   );

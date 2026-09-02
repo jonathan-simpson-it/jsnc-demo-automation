@@ -18,8 +18,18 @@ export default function ChatMessage({
 }: Props) {
   if (role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[70%] px-4 py-3 rounded-2xl rounded-br-sm bg-accent text-white text-sm leading-relaxed">
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            maxWidth: "70%",
+            padding: "0.75rem 1rem",
+            borderRadius: "1rem 1rem 0.25rem 1rem",
+            background: "var(--color-accent)",
+            color: "white",
+            fontSize: "0.88rem",
+            lineHeight: 1.6,
+          }}
+        >
           {content}
         </div>
       </div>
@@ -29,22 +39,62 @@ export default function ChatMessage({
   const summary = traceSummary(trace);
 
   return (
-    <div className="flex">
-      <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-sm bg-surface border border-line text-sm leading-relaxed">
+    <div style={{ display: "flex" }}>
+      <div
+        style={{
+          maxWidth: "85%",
+          padding: "1rem 1.25rem",
+          borderRadius: "1rem 1rem 1rem 0.25rem",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-line)",
+          fontSize: "0.88rem",
+          lineHeight: 1.6,
+        }}
+      >
         {agentType && (
-          <div className="text-xs text-accent uppercase tracking-wider mb-2 font-medium">
+          <div
+            style={{
+              fontSize: "0.72rem",
+              color: "var(--color-accent)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: "0.5rem",
+              fontWeight: 500,
+            }}
+          >
             {agentType.replace(/_/g, " ")}
           </div>
         )}
-        <div className="text-ink whitespace-pre-wrap">{content}</div>
+        <div style={{ color: "var(--color-ink)", whiteSpace: "pre-wrap" }}>
+          {content}
+        </div>
         {citations.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-line">
-            <span className="text-xs text-muted font-medium">Sources</span>
-            <div className="mt-1 space-y-1">
+          <div
+            style={{
+              marginTop: "0.75rem",
+              paddingTop: "0.75rem",
+              borderTop: "1px solid var(--color-line)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                color: "var(--color-muted)",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              Sources
+            </span>
+            <div className="space-y-1" style={{ marginTop: "0.25rem" }}>
               {citations.map((c, i) => {
                 const p = parseCitation(c);
                 return (
-                  <div key={i} className="text-xs text-muted">
+                  <div
+                    key={i}
+                    style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}
+                  >
                     {p.filename}, page {p.page}, line {p.line}
                   </div>
                 );
@@ -53,7 +103,14 @@ export default function ChatMessage({
           </div>
         )}
         {trace.length > 0 && (
-          <div className="mt-2 text-xs text-muted opacity-60">
+          <div
+            style={{
+              marginTop: "0.5rem",
+              fontSize: "0.72rem",
+              color: "var(--color-muted)",
+              opacity: 0.7,
+            }}
+          >
             Pipeline: {summary.path.join(" -> ")} ({formatMs(summary.totalMs)})
           </div>
         )}

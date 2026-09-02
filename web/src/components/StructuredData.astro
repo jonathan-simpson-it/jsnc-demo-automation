@@ -1,0 +1,12 @@
+---
+import { siteConfig } from '../data/siteConfig';
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: siteConfig.brandName,
+  url: siteConfig.siteUrl,
+  description: siteConfig.siteDescription,
+  sameAs: siteConfig.socialLinks.map(l => l.href),
+};
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

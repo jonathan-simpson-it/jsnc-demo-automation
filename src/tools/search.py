@@ -4,6 +4,7 @@ import re
 
 from langchain_core.tools import tool
 
+from config.settings import settings
 from src.vector_store.chroma import VectorStore
 
 # Maximum distance threshold — results above this are too dissimilar
@@ -447,6 +448,31 @@ def invalidate_auto_signals_cache() -> None:
     _auto_signals_cache = None
 
 
+def _rewrite_query_llm(query: str) -> str:
+    """Use LLM to rewrite a query for better retrieval.
+
+    Extracts key entities and rephrases for vector similarity matching.
+    Returns original query on any failure.
+    """
+    if not settings.enable_llm_rewrite:
+        return query
+    try:
+        from langchain_core.messages import HumanMessage, SystemMessage
+        from src.agents.graph import _make_llm
+        resp = _make_llm(temperature=0).invoke([
+            SystemMessage(content=(
+                "Rewrite this query to improve document retrieval. "
+                "Extract key entities, expand abbreviations, and add synonyms. "
+                "Return ONLY the rewritten query, no explanation."
+            )),
+            HumanMessage(content=query),
+        ])
+        rewritten = resp.content.strip()
+        return rewritten if rewritten else query
+    except Exception:
+        return query
+
+
 def create_search_tool(vector_store: VectorStore):
     """Create a LangChain tool for searching PE documents.
 
@@ -476,6 +502,7 @@ def create_search_tool(vector_store: VectorStore):
             Relevant document chunks as a formatted string, or a message
             indicating no relevant documents were found.
         """
+        query = _rewrite_query_llm(query)
         variants = _query_variants(query)
 
         # Detect if query is about a specific document
@@ -511,19 +538,41 @@ def create_search_tool(vector_store: VectorStore):
                         results.append(kr)
                         seen_contents.add(kr['content'][:100])
 
-            # Also search the query variants
-            for variant in variants:
-                variant_results = vector_store.search(variant, k=10)
+            # Also search the query variants (in parallel)
+            if variants:
+                from concurrent.futures import ThreadPoolExecutor, as_completed
                 seen_contents = {r['content'][:100] for r in results}
-                for vr in variant_results:
-                    if vr['content'][:100] not in seen_contents:
-                        results.append(vr)
-                        seen_contents.add(vr['content'][:100])
+                with ThreadPoolExecutor(max_workers=min(len(variants), 4)) as pool:
+                    futures = {
+                        pool.submit(vector_store.search, v, 10): v
+                        for v in variants
+                    }
+                    for future in as_completed(futures):
+                        for vr in future.result():
+                            if vr['content'][:100] not in seen_contents:
+                                results.append(vr)
+                                seen_contents.add(vr['content'][:100])
 
         # Sort by score (lower = more similar) and take the top results.
         # Detected (single-document) searches get a higher cap so smaller docs
         # are fully represented in context.
         results.sort(key=lambda r: r['score'])
+        # --- Hybrid BM25 scoring ---
+        if settings.enable_bm25 and results:
+            from src.tools.bm25 import bm25_search
+            bm25_results = bm25_search(query, results, k=len(results))
+            if bm25_results:
+                max_bm25 = max(r["bm25_score"] for r in bm25_results) or 1.0
+                for r in results:
+                    bm25_match = next(
+                        (b for b in bm25_results if b["content"][:80] == r["content"][:80]),
+                        None,
+                    )
+                    bm25_norm = (bm25_match["bm25_score"] / max_bm25) if bm25_match else 0.0
+                    vector_norm = 1.0 - (r["score"] / MAX_DISTANCE) if MAX_DISTANCE > 0 else 0.0
+                    r["hybrid_score"] = 0.6 * vector_norm + 0.4 * bm25_norm
+                results.sort(key=lambda r: r.get("hybrid_score", 0), reverse=True)
+
         results = results[:16 if detected else 10]
 
         # Filter out results that are too dissimilar

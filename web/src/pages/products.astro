@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+import PanelCard from '../components/PanelCard.astro';
+import ChipList from '../components/ChipList.astro';
+import CtaBand from '../components/CtaBand.astro';
+const products = [
+  { title: "PE AI Engineering Platform", desc: "RAG-powered document analysis with multi-agent orchestration for private equity workflows.", tags: ["LangGraph", "RAG", "DeepSeek", "ChromaDB"], status: "In Production" },
+  { title: "Compliance Toolkit", desc: "Modular compliance infrastructure: audit trails, PII redaction, explainability exports.", tags: ["Audit Trail", "PII Redaction", "RBAC"], status: "Open Source" },
+  { title: "Financial Operations Suite", desc: "Covenant monitoring, cash flow forecasting, and multi-currency handling.", tags: ["Forecasting", "Multi-Currency", "Monitoring"], status: "Beta" },
+];
+---
+<BaseLayout title="Products — Jonathan Simpson & Co." description="Software products for financial operations.">
+  <section class="section page-content">
+    <div class="container">
+      <SectionIntro eyebrow="Products" title="What we've built" description="Software tools born from real client work." />
+      <div class="grid-services">
+        {products.map(p => (
+          <PanelCard>
+            <span class="section-eyebrow">{p.status}</span>
+            <h3>{p.title}</h3>
+            <p style="margin:0.75rem 0 1rem">{p.desc}</p>
+            <ChipList tags={p.tags} />
+          </PanelCard>
+        ))}
+      </div>
+    </div>
+  </section>
+  <CtaBand />
+</BaseLayout>

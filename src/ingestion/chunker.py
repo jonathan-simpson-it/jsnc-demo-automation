@@ -53,6 +53,13 @@ def chunk_documents(
                 chunk_metadata["page"] = 1
                 chunk_metadata["line"] = 1
 
+            # Tag chunks that contain tables
+            from src.ingestion.tables import extract_tables_from_text
+            tables = extract_tables_from_text(chunk_text)
+            if tables:
+                chunk_metadata["has_table"] = True
+                chunk_metadata["table_count"] = len(tables)
+
             doc_chunks.append({
                 "content": chunk_text,
                 "metadata": chunk_metadata,
@@ -69,6 +76,17 @@ def chunk_documents(
             # Attach to the first chunk's metadata so VectorStore can read it
             doc_chunks[0]["metadata"]["auto_positive_signals"] = json.dumps(auto_signals[0])
             doc_chunks[0]["metadata"]["auto_negative_signals"] = json.dumps(auto_signals[1])
+
+        # Auto-generate a one-paragraph summary for sidebar display.
+        # Stored in collection metadata alongside auto-signals.
+        filename = doc["metadata"].get("filename", "unknown")
+        try:
+            from src.ingestion.summarize import summarize_document
+            summary = summarize_document(doc["content"], filename)
+            if summary:
+                doc_chunks[0]["metadata"]["auto_summary"] = summary
+        except Exception:
+            pass  # non-fatal: summary is a UX aid, not critical
 
         chunks.extend(doc_chunks)
 

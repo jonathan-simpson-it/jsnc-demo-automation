@@ -1,0 +1,18 @@
+---
+const steps = [
+  { number: "01", title: "Discovery", description: "Audit existing systems, understand workflows, identify bottlenecks." },
+  { number: "02", title: "Strategy", description: "Define success metrics, choose technology, plan architecture." },
+  { number: "03", title: "Design", description: "Wireframe → high-fidelity mockup → prototype. Iterative, client-reviewed." },
+  { number: "04", title: "Build", description: "Production-grade code, CI/CD pipelines, automated testing." },
+  { number: "05", title: "Launch & Iterate", description: "Deploy, monitor, train team, continuous improvement." },
+];
+---
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:1.5rem">
+  {steps.map(step => (
+    <div style="padding:1.5rem;border-left:2px solid var(--color-line)">
+      <span style="display:block;font-size:0.72rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent);margin-bottom:0.75rem">{step.number}</span>
+      <h3 style="margin-bottom:0.5rem">{step.title}</h3>
+      <p>{step.description}</p>
+    </div>
+  ))}
+</div>

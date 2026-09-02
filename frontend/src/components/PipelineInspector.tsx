@@ -29,76 +29,191 @@ export default function PipelineInspector({
         : "Low -- treat with caution";
 
   return (
-    <div className="border border-line rounded-lg">
+    <div
+      style={{
+        border: "1px solid var(--color-line)",
+        borderRadius: "var(--radius-md)",
+        overflow: "hidden",
+      }}
+    >
       <button
         onClick={() => setOpen(!open)}
-        className="w-full px-4 py-2 text-xs text-left text-muted hover:text-ink transition-colors flex justify-between"
+        style={{
+          width: "100%",
+          padding: "0.5rem 1rem",
+          fontSize: "0.72rem",
+          textAlign: "left",
+          color: "var(--color-muted)",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          transition: "color var(--transition-fast)",
+        }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.color = "var(--color-ink)")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.color = "var(--color-muted)")
+        }
       >
         <span>How I got this answer</span>
-        <span>{open ? "^" : "v"}</span>
+        <span>{open ? "\u2212" : "+"}</span>
       </button>
       {open && (
-        <div className="px-4 pb-4 space-y-3">
+        <div style={{ padding: "0 1rem 1rem" }} className="space-y-3">
+          {/* Confidence */}
           <div>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-muted">Confidence</span>
-              <span className="text-ink font-medium">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "0.78rem",
+                marginBottom: "0.25rem",
+              }}
+            >
+              <span style={{ color: "var(--color-muted)" }}>Confidence</span>
+              <span style={{ fontWeight: 500 }}>
                 {Math.round(confidence * 100)}%
               </span>
             </div>
-            <div className="h-2 bg-accent-soft rounded-full overflow-hidden">
+            <div
+              style={{
+                height: "0.5rem",
+                background: "var(--color-accent-soft)",
+                borderRadius: "999px",
+                overflow: "hidden",
+              }}
+            >
               <div
-                className="h-full bg-accent rounded-full"
-                style={{ width: `${confidence * 100}%` }}
+                style={{
+                  height: "100%",
+                  background: "var(--color-accent)",
+                  borderRadius: "999px",
+                  width: `${confidence * 100}%`,
+                  transition: "width 300ms ease",
+                }}
               />
             </div>
-            <p className="text-xs text-muted mt-1">{confidenceLabel}</p>
+            <p
+              style={{
+                fontSize: "0.72rem",
+                color: "var(--color-muted)",
+                marginTop: "0.25rem",
+              }}
+            >
+              {confidenceLabel}
+            </p>
           </div>
-          <div className="text-xs text-muted">
-            <span className="font-medium text-ink">Agent:</span> {agentType}
+
+          {/* Agent */}
+          <div style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>
+            <strong style={{ color: "var(--color-ink)" }}>Agent:</strong>{" "}
+            {agentType}
           </div>
-          <div className="text-xs text-muted">
-            <span className="font-medium text-ink">Path:</span>{" "}
-            <code className="bg-bg px-1 rounded">
-              {summary.path.join(" -> ")}
-            </code>
+
+          {/* Path */}
+          <div style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>
+            <strong style={{ color: "var(--color-ink)" }}>Path:</strong>{" "}
+            <code>{summary.path.join(" -> ")}</code>
           </div>
-          <div className="text-xs text-muted">
-            <span className="font-medium text-ink">Time:</span>{" "}
+
+          {/* Time */}
+          <div style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>
+            <strong style={{ color: "var(--color-ink)" }}>Time:</strong>{" "}
             {formatMs(summary.totalMs)} (
             {trace.filter((t) => LLM_NODES.has(t.node)).length} LLM calls)
           </div>
+
+          {/* Trace Bars */}
           <div className="space-y-1">
             {trace.map((e) => {
               const pct = Math.max(3, Math.round((e.ms / maxMs) * 100));
               const color =
-                e.ms < 100 ? "#22c55e" : e.ms < 500 ? "#eab308" : "#ef4444";
+                e.ms < 100
+                  ? "#22c55e"
+                  : e.ms < 500
+                    ? "#eab308"
+                    : "#ef4444";
               return (
-                <div key={e.node} className="flex items-center gap-2 text-xs">
-                  <span className="w-24 text-muted font-medium">
+                <div
+                  key={e.node}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.72rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "6rem",
+                      color: "var(--color-muted)",
+                      fontWeight: 500,
+                      flexShrink: 0,
+                    }}
+                  >
                     {e.node}
                     {e.node === summary.bottleneck && trace.length > 1
                       ? " *"
                       : ""}
                   </span>
-                  <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden">
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "0.5rem",
+                      background: "var(--color-bg)",
+                      borderRadius: "999px",
+                      overflow: "hidden",
+                    }}
+                  >
                     <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, backgroundColor: color }}
+                      style={{
+                        height: "100%",
+                        borderRadius: "999px",
+                        width: `${pct}%`,
+                        backgroundColor: color,
+                      }}
                     />
                   </div>
-                  <span className="w-16 text-right text-muted">{e.ms}ms</span>
+                  <span
+                    style={{
+                      width: "4rem",
+                      textAlign: "right",
+                      color: "var(--color-muted)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {e.ms}ms
+                  </span>
                 </div>
               );
             })}
           </div>
+
+          {/* Rescue Path Warning */}
           {summary.path.some((n) => n === "verify" || n === "wide_search") && (
-            <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+            <div
+              style={{
+                fontSize: "0.78rem",
+                color: "#92400e",
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                borderRadius: "var(--radius-md)",
+                padding: "0.5rem 0.75rem",
+              }}
+            >
               Rescue path activated. The initial answer was incomplete and
               required re-examination.
             </div>
           )}
-          <div className="text-xs text-muted">
+
+          {/* Sources Count */}
+          <div style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
             Sources cited: {citations.length}
           </div>
         </div>

@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
     retrieval_k: int = 4
+    cache_db_path: str = "./data/llm_cache.db"
+
+    # Search Enhancement Flags
+    enable_bm25: bool = True
+    enable_llm_rewrite: bool = False
+    enable_reranking: bool = False
+
+    # Advanced Agent Flags
+    enable_human_review: bool = False
+    enable_entity_linking: bool = False
 
 
 settings = Settings()

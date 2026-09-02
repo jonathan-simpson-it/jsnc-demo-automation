@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+import PanelCard from '../components/PanelCard.astro';
+import ChipList from '../components/ChipList.astro';
+import CtaBand from '../components/CtaBand.astro';
+const apps = [
+  { title: "AI Chat Interface", desc: "Natural language query interface for PE document analysis.", tags: ["SSE Streaming", "Multi-Agent", "Real-time"] },
+  { title: "Document Manager", desc: "Upload, manage, and browse the knowledge base.", tags: ["Drag & Drop", "Auto-Summary", "Version Control"] },
+  { title: "Eval Dashboard", desc: "View accuracy metrics across 180 test questions.", tags: ["180 Questions", "Per-Doc Metrics", "Pipeline Trace"] },
+  { title: "Pipeline Inspector", desc: "Transparent breakdown: agent routing, execution path, per-node timing.", tags: ["Confidence", "Citations", "Timing"] },
+];
+---
+<BaseLayout title="Applications — Jonathan Simpson & Co." description="Interactive applications built on our PE AI Platform.">
+  <section class="section page-content">
+    <div class="container">
+      <SectionIntro eyebrow="Applications" title="Interactive tools" description="Try the applications built on our PE AI Engineering Platform." />
+      <div class="grid-services">
+        {apps.map(a => (
+          <PanelCard>
+            <h3>{a.title}</h3>
+            <p style="margin:0.75rem 0 1rem">{a.desc}</p>
+            <ChipList tags={a.tags} />
+          </PanelCard>
+        ))}
+      </div>
+    </div>
+  </section>
+  <CtaBand />
+</BaseLayout>

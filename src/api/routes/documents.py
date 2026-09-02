@@ -109,14 +109,17 @@ async def get_document_stats():
     """Get document statistics.
 
     Returns:
-        Document and chunk counts.
+        Document and chunk counts with summaries.
     """
     try:
         vector_store = get_vector_store()
         count = vector_store.get_collection_count()
+        docs = vector_store.list_documents_with_summaries()
     except RuntimeError:
         count = 0
+        docs = []
     return {
         "total_documents": count,
         "collection_name": "pe_documents",
+        "documents": docs,
     }

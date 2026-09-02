@@ -114,43 +114,70 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-      <div className="flex items-center gap-4 px-4 py-2 bg-surface border-b border-line text-xs text-muted">
+      {/* Chat Header */}
+      <div
+        className="flex items-center gap-4 px-6"
+        style={{
+          height: "3rem",
+          borderBottom: "1px solid var(--color-line)",
+          background: "var(--color-surface)",
+          fontSize: "0.78rem",
+          color: "var(--color-muted)",
+        }}
+      >
         <StatusBadge />
-        <span>Agent: {agentType || "Auto-route"}</span>
+        <span style={{ color: "var(--color-line)" }}>|</span>
+        <span>
+          Agent: <strong style={{ color: "var(--color-ink)" }}>{agentType || "Auto-route"}</strong>
+        </span>
         {streamingNode && (
-          <span className="text-accent">{streamingNode}...</span>
+          <span style={{ color: "var(--color-accent)" }}>
+            {streamingNode}...
+          </span>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.map((m) => (
-          <div key={m.id}>
-            <ChatMessage
-              role={m.role}
-              content={m.content}
-              agentType={m.agentType}
-              citations={m.citations}
-              trace={m.trace}
-            />
-            {m.role === "assistant" && m.trace && m.trace.length > 0 && (
-              <div className="max-w-[85%] mt-2">
-                <PipelineInspector
-                  trace={m.trace}
-                  citations={m.citations || []}
-                  agentType={m.agentType || "unknown"}
-                  confidence={m.confidence || 0.8}
-                />
-              </div>
-            )}
-          </div>
-        ))}
-        <div ref={endRef} />
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-6" style={{ background: "var(--color-bg)" }}>
+        <div className="max-w-3xl mx-auto space-y-4">
+          {messages.map((m) => (
+            <div key={m.id}>
+              <ChatMessage
+                role={m.role}
+                content={m.content}
+                agentType={m.agentType}
+                citations={m.citations}
+                trace={m.trace}
+              />
+              {m.role === "assistant" && m.trace && m.trace.length > 0 && (
+                <div className="max-w-[85%] mt-2">
+                  <PipelineInspector
+                    trace={m.trace}
+                    citations={m.citations || []}
+                    agentType={m.agentType || "unknown"}
+                    confidence={m.confidence || 0.8}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={endRef} />
+        </div>
       </div>
-      <div className="border-t border-line bg-surface px-4 py-3">
+
+      {/* Input Area */}
+      <div
+        style={{
+          borderTop: "1px solid var(--color-line)",
+          background: "var(--color-surface)",
+          padding: "1rem 1.5rem",
+        }}
+      >
         <div className="flex gap-3 max-w-3xl mx-auto">
           <select
             value={agentType}
             onChange={(e) => setAgentType(e.target.value)}
-            className="px-3 py-2 bg-bg border border-line rounded-lg text-xs text-ink focus:outline-none focus:border-accent"
+            className="select"
           >
             {AGENTS.map((a) => (
               <option key={a.value} value={a.value}>
@@ -170,12 +197,14 @@ export default function ChatPage() {
             }}
             placeholder="Ask about PE deals, term sheets, compliance..."
             disabled={isStreaming}
-            className="flex-1 px-4 py-2 bg-bg border border-line rounded-lg text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent disabled:opacity-50"
+            className="input flex-1"
+            style={{ fontSize: "0.88rem" }}
           />
           <button
             onClick={handleSend}
             disabled={isStreaming || !input.trim()}
-            className="button button--solid disabled:opacity-40"
+            className="button button--solid"
+            style={{ opacity: isStreaming || !input.trim() ? 0.4 : 1 }}
           >
             {isStreaming ? "Processing..." : "Send"}
           </button>

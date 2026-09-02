@@ -1,97 +1,150 @@
-"""Simple in-memory LLM response cache.
+"""Persistent LLM response cache backed by SQLite.
 
 Avoids redundant API calls for repeated queries and classification.
-Uses a dict keyed by (query_hash, agent_type) with TTL expiry.
+Uses a SQLite database with TTL expiry and LRU eviction so the cache
+survives process restarts — useful for the eval harness (--retry-failed)
+and multi-instance deployments.
 """
 
 import hashlib
+import json
+import sqlite3
+import threading
 import time
 from typing import Any
 
+_DEFAULT_DB = "./data/llm_cache.db"
+
 
 class LLMCache:
-    """TTL-based in-memory cache for LLM responses."""
+    """SQLite-backed TTL cache for LLM responses."""
 
-    def __init__(self, ttl_seconds: int = 3600, max_size: int = 500):
-        """Initialize the cache.
-
-        Args:
-            ttl_seconds: Time-to-live for cache entries. Default 1 hour.
-            max_size: Maximum number of entries before LRU eviction.
-        """
+    def __init__(
+        self,
+        db_path: str = _DEFAULT_DB,
+        ttl_seconds: int = 3600,
+        max_size: int = 500,
+    ):
+        self.db_path = db_path
         self.ttl = ttl_seconds
         self.max_size = max_size
-        self._cache: dict[str, tuple[Any, float]] = {}
-        self._access_order: list[str] = []
+        self._local = threading.local()
+        self._init_db()
 
-    def _make_key(self, query: str, prefix: str = "") -> str:
-        """Create a cache key from query and optional prefix."""
+    # -- connection helpers (one per thread) --------------------------------
+
+    def _conn(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None or not isinstance(conn, sqlite3.Connection):
+            conn = sqlite3.connect(self.db_path, timeout=5)
+            conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn = conn
+        return conn
+
+    def _init_db(self) -> None:
+        conn = self._conn()
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS cache (
+                key         TEXT PRIMARY KEY,
+                value       TEXT NOT NULL,
+                timestamp   REAL NOT NULL,
+                access_count INTEGER DEFAULT 0
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ts ON cache(timestamp)"
+        )
+        conn.commit()
+
+    # -- key helper ---------------------------------------------------------
+
+    @staticmethod
+    def _make_key(query: str, prefix: str = "") -> str:
         raw = f"{prefix}:{query.strip().lower()}"
         return hashlib.md5(raw.encode()).hexdigest()
 
+    # -- public API (same interface as the old in-memory cache) -------------
+
     def get(self, query: str, prefix: str = "") -> Any | None:
-        """Get a cached response if available and not expired.
-
-        Args:
-            query: The original query.
-            prefix: Optional prefix (e.g., agent_type) to namespace keys.
-
-        Returns:
-            Cached response or None.
-        """
         key = self._make_key(query, prefix)
-        if key in self._cache:
-            value, timestamp = self._cache[key]
-            if time.time() - timestamp < self.ttl:
-                # Move to end of access order (most recently used)
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                self._access_order.append(key)
-                return value
-            else:
-                # Expired
-                del self._cache[key]
-                if key in self._access_order:
-                    self._access_order.remove(key)
-        return None
+        conn = self._conn()
+        row = conn.execute(
+            "SELECT value, timestamp FROM cache WHERE key = ?",
+            (key,),
+        ).fetchone()
+        if row is None:
+            return None
+        value_str, ts = row
+        if time.time() - ts >= self.ttl:
+            conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+            conn.commit()
+            return None
+        # Touch timestamp on access for LRU eviction ordering
+        conn.execute(
+            "UPDATE cache SET timestamp = ?, access_count = access_count + 1 "
+            "WHERE key = ?",
+            (time.time(), key),
+        )
+        conn.commit()
+        try:
+            return json.loads(value_str)
+        except (json.JSONDecodeError, TypeError):
+            return value_str
 
     def set(self, query: str, value: Any, prefix: str = "") -> None:
-        """Store a response in the cache.
-
-        Args:
-            query: The original query.
-            value: The response to cache.
-            prefix: Optional prefix to namespace keys.
-        """
         key = self._make_key(query, prefix)
-
-        # Evict LRU if at capacity
-        while len(self._cache) >= self.max_size and self._access_order:
-            oldest = self._access_order.pop(0)
-            self._cache.pop(oldest, None)
-
-        self._cache[key] = (value, time.time())
-        if key in self._access_order:
-            self._access_order.remove(key)
-        self._access_order.append(key)
+        serialized = json.dumps(value, default=str)
+        conn = self._conn()
+        conn.execute(
+            "INSERT OR REPLACE INTO cache (key, value, timestamp, access_count) "
+            "VALUES (?, ?, ?, 0)",
+            (key, serialized, time.time()),
+        )
+        conn.commit()
+        self._evict()
 
     def invalidate(self, query: str, prefix: str = "") -> None:
-        """Remove a specific entry from the cache."""
         key = self._make_key(query, prefix)
-        self._cache.pop(key, None)
-        if key in self._access_order:
-            self._access_order.remove(key)
+        conn = self._conn()
+        conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+        conn.commit()
 
     def clear(self) -> None:
-        """Clear all cached entries."""
-        self._cache.clear()
-        self._access_order.clear()
+        conn = self._conn()
+        conn.execute("DELETE FROM cache")
+        conn.commit()
 
     @property
     def size(self) -> int:
-        """Number of entries in the cache."""
-        return len(self._cache)
+        conn = self._conn()
+        row = conn.execute("SELECT COUNT(*) FROM cache").fetchone()
+        return row[0] if row else 0
+
+    # -- eviction -----------------------------------------------------------
+
+    def _evict(self) -> None:
+        conn = self._conn()
+        count = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+        if count <= self.max_size:
+            return
+        excess = count - self.max_size
+        # Evict least recently used (oldest timestamp)
+        conn.execute(
+            "DELETE FROM cache WHERE key IN "
+            "(SELECT key FROM cache ORDER BY timestamp ASC LIMIT ?)",
+            (excess,),
+        )
+        conn.commit()
+
+
+def _make_global_cache() -> LLMCache:
+    try:
+        from config.settings import settings
+        db = settings.cache_db_path
+    except Exception:
+        db = _DEFAULT_DB
+    return LLMCache(db_path=db, ttl_seconds=3600, max_size=500)
 
 
 # Global cache instance
-llm_cache = LLMCache(ttl_seconds=3600, max_size=500)
+llm_cache = _make_global_cache()

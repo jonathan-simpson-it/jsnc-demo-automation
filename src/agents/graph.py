@@ -11,10 +11,12 @@ from langgraph.graph import END, StateGraph
 
 from config.settings import settings
 from src.agents.prompts import (
+    CROSS_DOC_SYSTEM,
     GROUNDING_RULES,
     SOURCE_SELECTION_PROMPT,
     VERIFICATION_PROMPT,
     build_compliance_prompt,
+    build_cross_doc_prompt,
     build_lp_report_prompt,
     build_term_sheet_prompt,
     clean_citations,
@@ -31,7 +33,7 @@ from src.vector_store.chroma import VectorStore
 # ---------------------------------------------------------------------------
 class AgentState(TypedDict):
     query: str
-    agent_type: Literal["due_diligence", "term_sheet", "lp_report", "compliance"]
+    agent_type: Literal["due_diligence", "term_sheet", "lp_report", "compliance", "cross_doc"]
     agent_type_forced: bool
     retrieved: str
     narrowed: str
@@ -40,6 +42,10 @@ class AgentState(TypedDict):
     citations: list[str]
     conversation_history: list[dict]
     vector_store: Any
+    reviewed: bool
+    review_pending: bool
+    human_review_decision: str  # "approve" | "edit" | ""
+    human_edited_answer: str
     # Reducer required: langgraph >= 1.x overwrites plain list fields per node
     trace: Annotated[list[dict], operator.add]
 
@@ -77,6 +83,7 @@ _SYSTEM_PROMPTS = {
     "term_sheet": "You are a term sheet analyst at Archbridge Capital Partners, Hong Kong SAR. Extract structured data from financing documents accurately.",
     "lp_report": "You are an LP reporting analyst at Archbridge Capital Partners, Hong Kong SAR. Generate quarterly reports from portfolio and financial data.",
     "compliance": "You are a compliance analyst at Archbridge Capital Partners, Hong Kong SAR. Check documents against SFC, AMLO, HKMA, and Companies Ordinance regulations.",
+    "cross_doc": CROSS_DOC_SYSTEM,
 }
 
 # Prompt builders per agent type (None = built dynamically in answer_node)
@@ -85,6 +92,7 @@ _PROMPT_BUILDERS = {
     "term_sheet": build_term_sheet_prompt,
     "lp_report": build_lp_report_prompt,
     "compliance": build_compliance_prompt,
+    "cross_doc": build_cross_doc_prompt,
 }
 
 
@@ -224,11 +232,64 @@ def _parse_compliance(text: str) -> dict:
     }
 
 
+def _parse_cross_doc(text: str) -> dict:
+    """Parse cross-document comparison output.
+
+    The LLM is instructed to output SYNTHESIS, DIFFERENCES, SIMILARITIES,
+    and DOCUMENTS sections. Falls back to using the full text as synthesis
+    if parsing fails.
+    """
+    sections = {}
+    current = None
+    for line in text.strip().split("\n"):
+        stripped = line.strip()
+        clean = stripped.lstrip("-•* ").upper()
+        for label in ("SYNTHESIS:", "DIFFERENCES:", "SIMILARITIES:", "DOCUMENTS:"):
+            if clean.startswith(label):
+                current = label.rstrip(":").lower()
+                sections[current] = stripped.split(":", 1)[1].strip()
+                break
+        else:
+            if current and stripped.startswith("- "):
+                sections.setdefault(f"{current}_list", []).append(
+                    stripped[2:]
+                )
+            elif current and stripped:
+                sections[current] = (
+                    sections.get(current, "") + " " + stripped
+                )
+
+    synthesis = clean_citations(
+        sections.get("synthesis", "")
+    ) or clean_citations(text)
+    diffs = [
+        clean_citations(d)
+        for d in sections.get("differences_list", [])
+    ]
+    sims = [
+        clean_citations(s)
+        for s in sections.get("similarities_list", [])
+    ]
+    docs = [
+        clean_citations(d)
+        for d in sections.get("documents", "").split(";")
+        if d.strip()
+    ]
+    return {
+        "query": "",
+        "synthesis": synthesis or "Comparison completed",
+        "documents_compared": docs,
+        "key_differences": diffs,
+        "key_similarities": sims,
+    }
+
+
 PARSERS = {
     "due_diligence": _parse_due_diligence,
     "term_sheet": _parse_term_sheet,
     "lp_report": _parse_lp_report,
     "compliance": _parse_compliance,
+    "cross_doc": _parse_cross_doc,
 }
 
 
@@ -236,6 +297,12 @@ PARSERS = {
 # Keyword classification (fast path before LLM)
 # ---------------------------------------------------------------------------
 _KW_MAP = {
+    "cross_doc": [
+        "compare", "comparison", "difference between",
+        "differences between", "versus", " vs ",
+        "across documents", "across all", "across the",
+        "how do", "relative to", "against each other",
+    ],
     "term_sheet": ["liquidation preference", "anti-dilution", "board seats",
                     "protective provisions", "exclusivity", "esop", "price per share",
                     "governing law", "dispute resolution", "key person insurance"],
@@ -357,12 +424,13 @@ def classify_node(state: AgentState) -> dict:
     # a 4-way pick invites the model to invent a specialized label for any
     # regulatory-sounding content question.
     prompt = """Is the user's question about one of these specialized tasks?
+- cross_doc: comparing or contrasting information ACROSS multiple documents ("compare", "difference between", "how do X and Y differ", "versus", "across all documents")
 - term_sheet: extracting term-sheet fields from a financing document (valuation, liquidation preference, anti-dilution, board seats, ESOP, protective provisions, exclusivity, governing law)
 - lp_report: quarterly fund/portfolio reporting to limited partners (fund performance, portfolio update, LP report)
 - compliance: explicitly asking to check a document against regulations ("is it compliant", "compliance check", SFC, AMLO, HKMA, Companies Ordinance, KYC, AML)
 
-Factual or analytical questions about documents are NOT specialized — answer "none".
-Respond with ONLY one word: term_sheet, lp_report, compliance, or none."""
+Factual or analytical questions about a SINGLE document are NOT specialized — answer "none".
+Respond with ONLY one word: cross_doc, term_sheet, lp_report, compliance, or none."""
     history = state.get("conversation_history") or []
     messages: list = [SystemMessage(content=prompt)]
     if history:
@@ -374,7 +442,7 @@ Respond with ONLY one word: term_sheet, lp_report, compliance, or none."""
     messages.append(HumanMessage(content=query))
     try:
         cls = _invoke_text(_make_llm(), messages).strip().lower()
-        for valid in ("term_sheet", "lp_report", "compliance"):
+        for valid in ("cross_doc", "term_sheet", "lp_report", "compliance"):
             if valid in cls:
                 llm_cache.set(query, valid, prefix="classify")
                 return {"agent_type": valid}
@@ -555,6 +623,37 @@ def should_classify(state: AgentState) -> str:
     return "search" if state.get("agent_type_forced") else "classify"
 
 
+
+@_traced("review")
+def review_node(state: AgentState) -> dict:
+    """Human-in-the-loop review node.
+
+    Checks state['human_review_decision'] for:
+    - 'approve': pass answer through unchanged
+    - 'edit': replace answer with state['human_edited_answer']
+    - not set: mark review as pending (UI will collect decision)
+    """
+    decision = state.get("human_review_decision")
+
+    if decision == "approve":
+        return {"reviewed": True}
+
+    if decision == "edit":
+        edited = state.get("human_edited_answer", state.get("answer", ""))
+        return {"answer": edited, "reviewed": True}
+
+    return {"review_pending": True}
+
+
+def should_review(state: AgentState) -> str:
+    """Route to review if enabled and not already reviewed."""
+    if state.get("reviewed"):
+        return "verify" if not state.get("verified", True) else "end"
+    if settings.enable_human_review:
+        return "review"
+    return "verify" if not state.get("verified", True) else "end"
+
+
 def should_verify(state: AgentState) -> str:
     return "end" if state.get("verified", True) else "verify"
 
@@ -570,6 +669,7 @@ def build_agent_graph() -> StateGraph:
     graph = StateGraph(AgentState)
     for name, fn in [("classify", classify_node), ("search", search_node),
                      ("narrow", narrow_node), ("answer", answer_node),
+                     ("review", review_node),
                      ("verify", verify_node), ("wide_search", wide_search_node)]:
         graph.add_node(name, fn)
 
@@ -579,7 +679,13 @@ def build_agent_graph() -> StateGraph:
     graph.add_edge("classify", "search")
     graph.add_edge("search", "narrow")
     graph.add_edge("narrow", "answer")
-    graph.add_conditional_edges("answer", should_verify, {"verify": "verify", "end": END})
+    # If human review is enabled, route to review before verify
+    graph.add_conditional_edges("answer", should_review, {
+        "review": "review", "verify": "verify", "end": END,
+    })
+    graph.add_conditional_edges("review", should_verify, {
+        "verify": "verify", "end": END,
+    })
     graph.add_conditional_edges("verify", after_verify, {"wide_search": "wide_search", "end": END})
     graph.add_edge("wide_search", END)
     return graph.compile()

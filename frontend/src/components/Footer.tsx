@@ -2,37 +2,84 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-line mt-auto">
-      <div className="container py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <p className="font-serif text-lg text-ink">
-              Jonathan Simpson & Co.
-            </p>
-            <p className="text-xs text-muted mt-1">
-              Digital Strategy & Engineering
-            </p>
-          </div>
-          <div className="flex gap-4 text-xs text-muted">
-            <Link href="/" className="hover:text-accent transition-colors">
-              Platform
-            </Link>
-            <Link
-              href="https://www.linkedin.com/company/jonathan-simpson-co"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-accent transition-colors"
-            >
-              LinkedIn
-            </Link>
-          </div>
-        </div>
-        <div className="border-t border-line mt-6 pt-4">
-          <p className="text-xs text-muted">
-            &copy; {new Date().getFullYear()} Jonathan Simpson & Co. All rights
-            reserved.
+    <footer className="site-footer border-t border-line mt-auto">
+      <div className="container footer-inner">
+        {/* Brand — 2fr */}
+        <div>
+          <p className="footer-brand-large">
+            Jonathan
+            <br />
+            Simpson &amp;
+            <br />
+            Co.
+          </p>
+          <p className="text-muted" style={{ fontSize: "0.88rem" }}>
+            Digital Strategy &amp; Engineering
           </p>
         </div>
+
+        {/* Connect — 1fr */}
+        <div>
+          <p className="footer-heading">Connect</p>
+          <ul className="footer-links">
+            <li>
+              <Link
+                href="https://www.linkedin.com/company/jonathan-simpson-co"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                LinkedIn
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Read — 1fr */}
+        <div>
+          <p className="footer-heading">Read</p>
+          <ul className="footer-links">
+            <li>
+              <Link href="/">Platform</Link>
+            </li>
+            <li>
+              <Link href="/chat">AI Chat</Link>
+            </li>
+            <li>
+              <Link href="/eval">Eval Dashboard</Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Help — 1fr */}
+        <div>
+          <p className="footer-heading">Help</p>
+          <ul className="footer-links">
+            <li>
+              <Link href="/config">Configuration</Link>
+            </li>
+            <li>
+              <Link href="/documents">Documents</Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Start — 1fr */}
+        <div>
+          <p className="footer-heading">Start</p>
+          <Link
+            href="/chat"
+            className="button button--ghost button--small"
+          >
+            Start a query
+          </Link>
+        </div>
+      </div>
+
+      <div className="container footer-meta">
+        <p>
+          &copy; {new Date().getFullYear()} Jonathan Simpson &amp; Co. All rights
+          reserved.
+        </p>
       </div>
     </footer>
   );

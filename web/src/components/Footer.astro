@@ -1,0 +1,41 @@
+---
+import { siteConfig } from '../data/siteConfig';
+---
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div>
+      <p class="footer-brand-large">Jonathan<br>Simpson &<br>Co.</p>
+      <p class="text-muted">{siteConfig.brandTagline}</p>
+    </div>
+    <div>
+      <p class="footer-heading">Connect</p>
+      <ul class="footer-links" role="list">
+        {siteConfig.socialLinks.map(link => (
+          <li><a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a></li>
+        ))}
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Read</p>
+      <ul class="footer-links" role="list">
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/work/">Case studies</a></li>
+        <li><a href="/products/">Products</a></li>
+        <li><a href="/applications/">Applications</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Help</p>
+      <ul class="footer-links" role="list">
+        <li><a href="/support/">Support & FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Start</p>
+      <a class="button button--ghost button--small" href="/contact/">Start a project</a>
+    </div>
+  </div>
+  <div class="container footer-meta">
+    <p>&copy; {new Date().getFullYear()} {siteConfig.brandName} All rights reserved.</p>
+  </div>
+</footer>

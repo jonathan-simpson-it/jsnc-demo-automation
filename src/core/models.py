@@ -67,6 +67,16 @@ class ComplianceCheck(BaseModel):
     regulations_checked: list[str] = Field(default_factory=list)
 
 
+class CrossDocComparison(BaseModel):
+    """Cross-document comparison result."""
+
+    query: str = Field(default="")
+    synthesis: str
+    documents_compared: list[str] = Field(default_factory=list)
+    key_differences: list[str] = Field(default_factory=list)
+    key_similarities: list[str] = Field(default_factory=list)
+
+
 class AgentQuery(BaseModel):
     """Input query for agent execution."""
 

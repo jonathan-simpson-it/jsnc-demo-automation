@@ -1,0 +1,76 @@
+---
+import { siteConfig } from '../data/siteConfig';
+import HeaderNav from './HeaderNav.astro';
+import Footer from './Footer.astro';
+import StructuredData from './StructuredData.astro';
+import SkipLink from './SkipLink.astro';
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title = siteConfig.seo.defaultTitle,
+  description = siteConfig.seo.defaultDescription,
+  ogImage = siteConfig.seo.ogImage,
+} = Astro.props;
+
+const canonicalUrl = `${siteConfig.siteUrl}${Astro.url.pathname}`;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <link rel="canonical" href={canonicalUrl}>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content={title}>
+  <meta property="og:description" content={description}>
+  <meta property="og:image" content={`${siteConfig.siteUrl}${ogImage}`}>
+  <meta property="og:url" content={canonicalUrl}>
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content={title}>
+  <meta name="twitter:description" content={description}>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <StructuredData />
+  <slot name="head" />
+</head>
+<body>
+  <SkipLink />
+  <HeaderNav />
+  <main id="main-content">
+    <slot />
+  </main>
+  <Footer />
+</body>
+</html>
+
+<script>
+  const header = document.querySelector('.site-header');
+  if (header) {
+    const observer = new IntersectionObserver(([entry]) => {
+      header.classList.toggle('scrolled', !entry.isIntersecting);
+    }, { threshold: 0.1 });
+    const sentinel = document.createElement('div');
+    sentinel.style.cssText = 'height:1px;position:absolute;top:0';
+    document.body.prepend(sentinel);
+    observer.observe(sentinel);
+  }
+  const toggle = document.querySelector('.menu-toggle');
+  const nav = document.querySelector('.main-nav');
+  if (toggle && nav) {
+    toggle.addEventListener('click', () => {
+      nav.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(nav.classList.contains('open')));
+    });
+    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => nav.classList.remove('open')));
+  }
+</script>

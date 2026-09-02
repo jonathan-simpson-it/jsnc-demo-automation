@@ -1,0 +1,29 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+import PanelCard from '../components/PanelCard.astro';
+import ChipList from '../components/ChipList.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { getCollection } from 'astro:content';
+const projects = (await getCollection('projects')).filter(p => !p.data.draft).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+<BaseLayout title="Work — Jonathan Simpson & Co." description="Case studies from our work automating financial operations.">
+  <section class="section page-content">
+    <div class="container">
+      <SectionIntro eyebrow="Work" title="Case studies" description="We build systems that move money and manage risk." />
+      <div class="grid-blog">
+        {projects.map(p => (
+          <a href={`/work/${p.id}/`} style="text-decoration:none">
+            <PanelCard>
+              <span class="section-eyebrow">{p.data.client}</span>
+              <h3 style="margin:0.5rem 0 0.75rem">{p.data.title}</h3>
+              <p style="margin-bottom:1rem">{p.data.description}</p>
+              <ChipList tags={p.data.tags} />
+            </PanelCard>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+  <CtaBand />
+</BaseLayout>

@@ -50,62 +50,122 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="container py-16">
-      <div className="text-center mb-16">
-        <span className="section-eyebrow">AI Engineering Platform</span>
-        <h1 className="text-4xl sm:text-6xl mt-3 mb-4 font-serif">
-          AI Engineering Platform
-        </h1>
-        <p className="text-muted text-lg max-w-xl mx-auto">
-          Private Equity workflow automation with RAG and multi-agent systems.
-        </p>
-      </div>
+    <>
+      {/* Hero Section */}
+      <section className="section" style={{ paddingBottom: "clamp(3rem, 6vw, 5rem)" }}>
+        <div className="container">
+          <div className="section-intro" style={{ maxWidth: "48rem" }}>
+            <span className="section-eyebrow">AI Engineering Platform</span>
+            <h1>Private Equity workflow automation.</h1>
+            <p>
+              RAG-powered multi-agent system for due diligence, term sheet
+              analysis, compliance checks, and cross-document comparison.
+            </p>
+          </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-6 mb-12 text-sm text-muted">
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${health?.status === "healthy" ? "bg-green-500" : "bg-red-400"}`}
-          />
-          <span>
-            {health?.status === "healthy" ? "System Ready" : "Offline"}
-          </span>
-        </div>
-        {health && <span>API v{health.version}</span>}
-        {docs && <span>{docs.total_documents} documents loaded</span>}
-        <span>{agents.length} agents available</span>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl mx-auto">
-        {TOOLS.map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className="panel-card group text-center"
+          {/* Status Bar */}
+          <div
+            className="flex flex-wrap items-center gap-6"
+            style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}
           >
-            <h3 className="text-base mb-2 group-hover:text-accent transition-colors">
-              {t.label}
-            </h3>
-            <p className="text-sm text-muted">{t.desc}</p>
-          </Link>
-        ))}
-      </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background:
+                    health?.status === "healthy"
+                      ? "#22c55e"
+                      : "var(--color-muted)",
+                }}
+              />
+              <span>
+                {health?.status === "healthy" ? "System Ready" : "Checking..."}
+              </span>
+            </div>
+            {health && <span>API v{health.version}</span>}
+            {docs && <span>{docs.total_documents} documents loaded</span>}
+            <span>{agents.length} agents available</span>
+          </div>
+        </div>
+      </section>
 
-      {agents.length > 0 && (
-        <div className="mt-16 max-w-3xl mx-auto">
-          <h2 className="text-2xl mb-6 font-serif">Available Agents</h2>
-          <div className="space-y-3">
-            {agents.map((a) => (
-              <div key={a.type} className="panel-card flex items-start gap-4">
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium">{a.name}</h3>
-                  <p className="text-xs text-muted mt-1">{a.description}</p>
-                </div>
-                <span className="chip text-xs">{a.type}</span>
-              </div>
+      {/* Tools Section */}
+      <section className="section--tight" style={{ borderTop: "1px solid var(--color-line)" }}>
+        <div className="container">
+          <div className="section-intro">
+            <span className="section-eyebrow">Tools</span>
+            <h2>Your workflow, automated.</h2>
+            <p>
+              Each tool connects to the same multi-agent backend. Start anywhere.
+            </p>
+          </div>
+
+          <div
+            className="grid gap-4"
+            style={{
+              gridTemplateColumns: "repeat(auto-fit, minmax(16rem, 1fr))",
+            }}
+          >
+            {TOOLS.map((t) => (
+              <Link key={t.href} href={t.href} className="panel-card group">
+                <h3
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.07em",
+                    textTransform: "uppercase",
+                    marginBottom: "0.5rem",
+                  }}
+                  className="group-hover:text-accent transition-colors"
+                >
+                  {t.label}
+                </h3>
+                <p style={{ color: "var(--color-muted)", fontSize: "0.88rem" }}>
+                  {t.desc}
+                </p>
+              </Link>
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Agents Section */}
+      {agents.length > 0 && (
+        <section className="section--tight" style={{ borderTop: "1px solid var(--color-line)" }}>
+          <div className="container">
+            <div className="section-intro">
+              <span className="section-eyebrow">Agents</span>
+              <h2>Built for specialization.</h2>
+              <p>
+                Each agent is optimized for a specific PE workflow. The router
+                selects the right one automatically.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {agents.map((a) => (
+                <div key={a.type} className="panel-card flex items-start gap-4">
+                  <div className="flex-1">
+                    <h3 style={{ fontSize: "0.95rem", fontWeight: 500 }}>
+                      {a.name}
+                    </h3>
+                    <p
+                      style={{
+                        color: "var(--color-muted)",
+                        fontSize: "0.85rem",
+                        marginTop: "0.25rem",
+                      }}
+                    >
+                      {a.description}
+                    </p>
+                  </div>
+                  <span className="chip">{a.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       )}
-    </div>
+    </>
   );
 }

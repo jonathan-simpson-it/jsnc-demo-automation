@@ -1,0 +1,57 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+import PanelCard from '../components/PanelCard.astro';
+import ChipList from '../components/ChipList.astro';
+import ProcessSteps from '../components/ProcessSteps.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { siteConfig } from '../data/siteConfig';
+---
+<BaseLayout>
+  <section class="hero">
+    <div class="hero-content">
+      <span class="section-eyebrow" style="color:var(--color-accent)">Digital Strategy & Engineering</span>
+      <h1>We build the systems behind the numbers.</h1>
+      <p>{siteConfig.brandTagline}</p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+        <a class="button button--solid" href="/contact/">Start a project</a>
+        <a class="button button--ghost" href="/work/" style="color:white;border-color:rgba(255,255,255,0.2)">See our work</a>
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="container">
+      <SectionIntro eyebrow="Services" title="What we do" description="Three phases. One team. From strategy to production." />
+      <div class="grid-services">
+        {siteConfig.services.map(s => (
+          <PanelCard>
+            <h3>{s.title}</h3>
+            <p style="margin:0.75rem 0 1rem">{s.description}</p>
+            <ChipList tags={s.tags} />
+          </PanelCard>
+        ))}
+      </div>
+    </div>
+  </section>
+  <section class="section section--tight" style="background:var(--color-surface);border-top:1px solid var(--color-line);border-bottom:1px solid var(--color-line)">
+    <div class="container">
+      <SectionIntro eyebrow="Capabilities" title="What we've built" description="Automation systems, compliance platforms, and financial operations tools." />
+      <div class="grid-capabilities">
+        {siteConfig.capabilities.map(c => (
+          <PanelCard>
+            <h3>{c.title}</h3>
+            <p style="margin:0.75rem 0 1rem">{c.description}</p>
+            <ChipList tags={c.tags} />
+          </PanelCard>
+        ))}
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="container">
+      <SectionIntro eyebrow="Process" title="How we work" description="A five-step methodology refined across dozens of deployments." />
+      <ProcessSteps />
+    </div>
+  </section>
+  <CtaBand />
+</BaseLayout>

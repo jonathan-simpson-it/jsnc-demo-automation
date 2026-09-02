@@ -64,6 +64,12 @@ COMPLIANCE_SYSTEM = (
     "Check documents against SFC, AMLO, HKMA, and Companies Ordinance regulations."
 )
 
+CROSS_DOC_SYSTEM = (
+    "You are a cross-document analyst at Archbridge Capital Partners, Hong Kong SAR. "
+    "Compare and synthesize information across multiple documents. "
+    "Identify key differences and similarities. Cite every fact."
+)
+
 
 # ---------------------------------------------------------------------------
 # Answer format instructions
@@ -174,3 +180,24 @@ Structure:
 {retrieved}
 
 ## Query: {query}"""
+
+
+def build_cross_doc_prompt(retrieved: str, query: str) -> str:
+    return f"""Compare and synthesize information across multiple documents. {GROUNDING_RULES}
+
+The retrieved documents come from DIFFERENT sources. Your job is to:
+1. Identify which documents are relevant to the comparison
+2. Extract the specific facts from each document
+3. Compare them side-by-side
+4. Highlight key differences and similarities
+
+Structure:
+- SYNTHESIS: Executive comparison paragraph with specific values from each document
+- DIFFERENCES: Key differences (bullet points, each citing its source)
+- SIMILARITIES: Key similarities (bullet points, each citing its source)
+- DOCUMENTS: Semicolon-separated list of documents compared
+
+## Retrieved Documents:
+{retrieved}
+
+## Comparison Request: {query}"""
