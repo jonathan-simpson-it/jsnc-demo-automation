@@ -37,7 +37,9 @@ env/
 # Data
 data/chroma/
 data/uploads/
+frontend/data/
 *.db
+*.sqlite3
 
 # Testing
 .pytest_cache/
