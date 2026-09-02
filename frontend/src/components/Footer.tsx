@@ -9,9 +9,7 @@ export default function Footer() {
           <p className="footer-brand-large">
             Jonathan
             <br />
-            Simpson &amp;
-            <br />
-            Co.
+            Simpson &amp; Co.
           </p>
           <p className="text-muted" style={{ fontSize: "0.88rem" }}>
             Digital Strategy &amp; Engineering
