@@ -422,4 +422,56 @@
   .button {
     transition: none;
   }
+  .streaming-dot {
+    animation: none !important;
+  }
+}
+
+/* ======= Streaming Animation ======= */
+
+@keyframes pulse-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.streaming-dots {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.streaming-dots span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: pulse-dot 1.4s infinite ease-in-out both;
+}
+
+.streaming-dots span:nth-child(1) { animation-delay: -0.32s; }
+.streaming-dots span:nth-child(2) { animation-delay: -0.16s; }
+.streaming-dots span:nth-child(3) { animation-delay: 0s; }
+
+/* ======= Suggestion Chips ======= */
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.suggestion-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
 }
