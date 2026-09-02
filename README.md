@@ -220,20 +220,24 @@ rag-langgraph-langchain/
 
 ### 1. Document Ingestion
 
-```
-File (PDF/TXT/MD)
-    │
-    ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ Load & Parse │────▶│ Chunk + TF-IDF│────▶│ Vector Store │
-│ (loader.py)  │     │ (chunker.py) │     │ (chroma.py)  │
-└──────────────┘     └──────────────┘     └──────────────┘
-     │                     │                     │
-     ▼                     ▼                     ▼
-  Page/line            1000-char            Per-document
-  tracking             chunks with          collection +
-                       200-char overlap     global collection
-                                            + auto-signals
+```mermaid
+flowchart TD
+    F["File (PDF/TXT/MD)"]
+    L["Load & Parse<br/>(loader.py)"]
+    C["Chunk + TF-IDF<br/>(chunker.py)"]
+    V["Vector Store<br/>(chroma.py)"]
+    P["Page/line tracking"]
+    O["1000-char chunks<br/>with 200-char overlap"]
+    PD["Per-document collection"]
+    GL["Global collection"]
+    AS["Auto-signals"]
+
+    F --> L --> C --> V
+    L --> P
+    C --> O
+    V --> PD
+    V --> GL
+    V --> AS
 ```
 
 **loader.py** handles three formats:
@@ -247,93 +251,31 @@ File (PDF/TXT/MD)
 
 ### 2. Query Processing
 
-```
-"Who is the CEO of Acme Corp?"
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Step 1: CLASSIFY (classify_node)                            │
-│                                                             │
-│ Fast path: keyword matching against _KW_MAP                 │
-│   "liquidation preference" → term_sheet                     │
-│   "sfc compliance" → compliance                             │
-│                                                             │
-│ Slow path: LLM classification (only for ambiguous queries)  │
-│                                                             │
-│ Result: "due_diligence"                                     │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Step 2: SEARCH (search_node)                                │
-│                                                             │
-│ 2a. Detect target document via keyword signals              │
-│     "CEO" + "Acme" → sample_investment_memo.md (score=4)    │
-│                                                             │
-│ 2b. Generate query variants:                                │
-│     Original: "Who is the CEO of Acme Corp?"                │
-│     Keywords: "CEO Acme Corp"                               │
-│     Synonyms: "Who is the CEO of Acme Corp? person title"   │
-│                                                             │
-│ 2c. Search scoped to detected doc (k=20)                    │
-│     Or search all collections (k=10 per doc, merge)         │
-│                                                             │
-│ 2d. Filter by MAX_DISTANCE=2.0 (L2 similarity threshold)    │
-│                                                             │
-│ Result: 4 source chunks with [Source N: filename, page, line]│
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Step 3: NARROW (narrow_node)                                │
-│                                                             │
-│ If ≤4 sources: keep all                                     │
-│ If >4 sources from same document: keep top 16               │
-│ If >4 sources from mixed documents:                         │
-│   Ask LLM to pick top-3 most relevant sources               │
-│                                                             │
-│ Result: filtered sources                                    │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Step 4: ANSWER (answer_node)                                │
-│                                                             │
-│ Build prompt with:                                          │
-│   - System prompt (agent role)                              │
-│   - Grounding rules (exact values, citations, synthesis)    │
-│   - Retrieved documents (narrowed sources)                  │
-│   - User question                                           │
-│                                                             │
-│ LLM generates answer with [Source N: ...] citations         │
-│                                                             │
-│ Check: does answer say "not found"?                         │
-│   Yes → verified=False → trigger verify_node                │
-│   No  → verified=True  → done                               │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼ (if verified=False)
-┌─────────────────────────────────────────────────────────────┐
-│ Step 5: VERIFY (verify_node)                                │
-│                                                             │
-│ Re-examine the SAME sources with a focused prompt:          │
-│ "Search for the EXACT subject of the question..."           │
-│                                                             │
-│ If found → return corrected answer, verified=True            │
-│ If still not found → verified=False → trigger wide_search   │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼ (if still verified=False)
-┌─────────────────────────────────────────────────────────────┐
-│ Step 6: WIDE SEARCH (wide_search_node)                      │
-│                                                             │
-│ Deep search with k=60 (vs normal k=10-20)                   │
-│ Search original query + keyword variant                     │
-│ Deduplicate, format, re-ask with verification prompt        │
-│                                                             │
-│ If found → return answer                                    │
-│ If not → accept not-found, end                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Q["User Query:<br/>Who is the CEO of Acme Corp?"]
+
+    S1["Step 1: CLASSIFY (classify_node)<br/>Fast path: keyword matching against _KW_MAP<br/>liquidation preference → term_sheet<br/>sfc compliance → compliance<br/>Slow path: LLM classification (only for ambiguous queries)<br/>Result: due_diligence"]
+
+    S2["Step 2: SEARCH (search_node)<br/>2a. Detect target document via keyword signals<br/>2b. Generate query variants: original, keywords, synonyms<br/>2c. Search scoped to detected doc (k=20) or all collections (k=10, merge)<br/>2d. Filter by MAX_DISTANCE=2.0 (L2 similarity threshold)<br/>Result: 4 source chunks with [Source N: filename, page, line]"]
+
+    S3["Step 3: NARROW (narrow_node)<br/>If ≤4 sources: keep all<br/>If >4 sources from same document: keep top 16<br/>If >4 sources from mixed documents: LLM picks top-3<br/>Result: filtered sources"]
+
+    S4["Step 4: ANSWER (answer_node)<br/>Build prompt: system prompt + grounding rules + retrieved docs + question<br/>LLM generates answer with [Source N: ...] citations<br/>Check: does answer say not found?"]
+
+    S5["Step 5: VERIFY (verify_node)<br/>Re-examine the SAME sources with a focused prompt<br/>If found → return corrected answer, verified=True<br/>If still not found → verified=False → trigger wide_search"]
+
+    S6["Step 6: WIDE SEARCH (wide_search_node)<br/>Deep search with k=60 (vs normal k=10-20)<br/>Search original query + keyword variant<br/>Deduplicate, format, re-ask with verification prompt<br/>If found → return answer / If not → accept not-found, end"]
+
+    V{verified?}
+    E(["END"])
+
+    Q --> S1 --> S2 --> S3 --> S4 --> V
+    V -- "Yes" --> E
+    V -- "No" --> S5
+    S5 --> V
+    V -- "Still No" --> S6
+    S6 --> E
 ```
 
 ### 3. Response Parsing
