@@ -12,6 +12,9 @@ from src.api.deps import set_vector_store
 from src.api.routes.agents import router as agents_router
 from src.api.routes.documents import router as documents_router
 from src.api.routes.summary import router as summary_router
+from src.api.routes.clients import router as clients_router
+from src.api.routes.projects import router as projects_router
+from src.api.routes.onedrive import router as onedrive_router
 from src.vector_store.chroma import VectorStore
 
 
@@ -41,6 +44,9 @@ app.add_middleware(
 app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
 app.include_router(summary_router, prefix="/api/summary", tags=["summary"])
+app.include_router(clients_router, prefix="/api/clients", tags=["clients"])
+app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
+app.include_router(onedrive_router, prefix="/api/onedrive", tags=["onedrive"])
 
 
 @app.get("/health")

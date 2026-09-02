@@ -51,6 +51,7 @@ coverage.xml
 web/node_modules/
 frontend/node_modules/
 frontend/.next/
+!frontend/src/lib/
 
 # OS
 .DS_Store
