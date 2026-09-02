@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { streamAgent } from "@/lib/api";
 import type { AgentResponse, TraceEntry } from "@/lib/types";
 import ChatMessage from "@/components/ChatMessage";
@@ -25,17 +26,29 @@ const AGENTS = [
   { value: "cross_doc", label: "Cross-Document" },
 ];
 
-export default function ChatPage() {
+const AGENT_NAMES: Record<string, string> = {
+  due_diligence: "Due Diligence Agent",
+  term_sheet: "Term Sheet Extractor",
+  lp_report: "LP Report Generator",
+  compliance: "Compliance Checker",
+  cross_doc: "Cross-Document Comparison",
+};
+
+function ChatInner() {
+  const searchParams = useSearchParams();
+  const initialAgent = searchParams.get("agent") || "";
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content:
-        "Hello! I'm your PE AI assistant. Ask me about due diligence, term sheets, compliance, or any documents in the knowledge base.",
+      content: initialAgent
+        ? `Hello! I'm your ${AGENT_NAMES[initialAgent] || initialAgent}. How can I help?`
+        : "Hello! I'm your PE AI assistant. Ask me about due diligence, term sheets, compliance, or any documents in the knowledge base.",
     },
   ]);
   const [input, setInput] = useState("");
-  const [agentType, setAgentType] = useState("");
+  const [agentType, setAgentType] = useState(initialAgent);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingNode, setStreamingNode] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -211,5 +224,28 @@ export default function ChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "calc(100vh - 3.5rem)",
+            color: "var(--color-muted)",
+            fontSize: "0.88rem",
+          }}
+        >
+          Loading...
+        </div>
+      }
+    >
+      <ChatInner />
+    </Suspense>
   );
 }
