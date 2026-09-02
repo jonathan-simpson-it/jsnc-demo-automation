@@ -15,37 +15,37 @@ from src.vector_store.chroma import VectorStore
 
 def main():
     """Main ingestion workflow."""
-    print("🏦 PE AI Engineering - Document Ingestion")
+    print("PE AI Engineering - Document Ingestion")
     print("=" * 50)
 
     # Load documents
     data_dir = Path("data/sample")
-    print(f"\n📂 Loading documents from {data_dir}...")
+    print(f"\nLoading documents from {data_dir}...")
 
     try:
         documents = load_documents(data_dir)
     except FileNotFoundError:
-        print(f"❌ Error: Data directory not found at {data_dir}")
+        print(f"Error: Data directory not found at {data_dir}")
         sys.exit(1)
 
-    print(f"✅ Loaded {len(documents)} documents")
+    print(f"Loaded {len(documents)} documents")
 
     # Chunk documents
-    print("\n✂️  Chunking documents...")
+    print("\nChunking documents...")
     chunks = chunk_documents(documents)
-    print(f"✅ Created {len(chunks)} chunks")
+    print(f"Created {len(chunks)} chunks")
 
     # Add to vector store
-    print(f"\n💾 Adding to vector store at {settings.chroma_persist_directory}...")
+    print(f"\nAdding to vector store at {settings.chroma_persist_directory}...")
     store = VectorStore()
     store.add_documents(chunks)
-    print(f"✅ Added {len(chunks)} chunks to vector store")
+    print(f"Added {len(chunks)} chunks to vector store")
 
     # Verify
     count = store.get_collection_count()
-    print(f"\n📊 Vector store now contains {count} documents")
+    print(f"\nVector store now contains {count} documents")
 
-    print("\n✅ Ingestion complete!")
+    print("\nIngestion complete!")
 
 
 if __name__ == "__main__":

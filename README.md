@@ -1,4 +1,4 @@
-# 🏦 PE AI Engineering Portfolio
+# PE AI Engineering Portfolio
 
 > AI-powered Private Equity workflow automation with RAG and multi-agent systems.
 > Built as a learning project to demonstrate end-to-end AI engineering skills.
@@ -45,7 +45,7 @@ flowchart TD
     WS --> E
 ```
 
-**Why LangGraph?** Instead of a simple if/else router, each step is a **node** in a graph with **conditional edges**. This makes the workflow inspectable, debuggable, and extensible — you can add new nodes (like human-in-the-loop review) without changing existing code.
+**Why LangGraph?** Instead of a simple if/else router, each step is a **node** in a graph with **conditional edges**. This makes the workflow inspectable, debuggable, and extensible -- you can add new nodes (like human-in-the-loop review) without changing existing code.
 
 ---
 
@@ -53,16 +53,16 @@ flowchart TD
 
 | Technology | Version | Purpose | Why Chosen |
 |-----------|---------|---------|------------|
-| **LangGraph** | ≥0.2.0 | Agent workflow orchestration | StateGraph with conditional edges for retry loops |
-| **LangChain** | ≥0.3.0 | LLM framework, tools, document handling | Industry standard for RAG pipelines |
-| **LangChain-DeepSeek** | ≥0.1.0 | DeepSeek API integration | Cost-effective LLM with strong reasoning |
-| **ChromaDB** | ≥0.5.0 | Vector storage and similarity search | Lightweight, local-first, no server needed |
-| **pypdf** | ≥4.0.0 | PDF text extraction | Pure Python, no system dependencies |
-| **FastAPI** | ≥0.115.0 | REST API backend | Async, auto-docs, type-safe |
-| **Streamlit** | ≥1.38.0 | Interactive chat UI | Rapid prototyping, Python-native |
-| **Pydantic** | ≥2.0.0 | Data validation and models | Type safety, serialization |
-| **Pydantic Settings** | ≥2.0.0 | Environment config management | `.env` file support, type validation |
-| **Python** | ≥3.11 | Runtime | Pattern matching, type unions |
+| **LangGraph** | >=0.2.0 | Agent workflow orchestration | StateGraph with conditional edges for retry loops |
+| **LangChain** | >=0.3.0 | LLM framework, tools, document handling | Industry standard for RAG pipelines |
+| **LangChain-DeepSeek** | >=0.1.0 | DeepSeek API integration | Cost-effective LLM with strong reasoning |
+| **ChromaDB** | >=0.5.0 | Vector storage and similarity search | Lightweight, local-first, no server needed |
+| **pypdf** | >=4.0.0 | PDF text extraction | Pure Python, no system dependencies |
+| **FastAPI** | >=0.115.0 | REST API backend | Async, auto-docs, type-safe |
+| **Next.js** | >=14.2.0 | Dynamic web application | React App Router, TypeScript, Tailwind |
+| **Pydantic** | >=2.0.0 | Data validation and models | Type safety, serialization |
+| **Pydantic Settings** | >=2.0.0 | Environment config management | `.env` file support, type validation |
+| **Python** | >=3.11 | Runtime | Pattern matching, type unions |
 
 ### DeepSeek API
 
@@ -116,19 +116,19 @@ class AgentState(TypedDict):
 - After `answer`: if `verified=False`, go to `verify` node; otherwise end
 - After `verify`: if still `verified=False`, go to `wide_search`; otherwise end
 
-The **verify/wide_search retry loop only fires on genuine misses** — not on every
+The **verify/wide_search retry loop only fires on genuine misses** -- not on every
 query. Verification triggers only when the answer explicitly states the
 information was not found (e.g. `CONFIRMED NOT FOUND`), is empty, or contains
 no content beyond citation tags. Boilerplate like
 `RECOMMENDATION: Insufficient data to recommend.` does NOT trigger it. In the
 full 180-question eval the loop fired on only 17 of 180 questions (vs. every
-query before this fix) — cutting LLM calls per question from ~4.0 to ~2.2.
+query before this fix) -- cutting LLM calls per question from ~4.0 to ~2.2.
 
 **Pipeline tracing:** every node records its wall time in `state['trace']`
 in execution order, surfaced in the API `metadata.trace` field and in eval
-results — so you can see exactly which path answered a question
-(`classify → search → narrow → answer` vs. the rescue path through
-`verify → wide_search`).
+results -- so you can see exactly which path answered a question
+(`classify -> search -> narrow -> answer` vs. the rescue path through
+`verify -> wide_search`).
 
 ### Per-Document Collections
 
@@ -155,9 +155,9 @@ _DOC_SIGNALS = {
 - **Positive signals**: keywords that indicate the query is about this document (weight 1-2)
 - **Negative signals**: keywords that indicate the query is about a *different* document (weight 1-3)
 - **Score**: sum of matched positive signals minus matched negative signals
-- **Threshold**: score ≥ 2 to confidently detect a document
+- **Threshold**: score >= 2 to confidently detect a document
 
-New uploads also get **auto-generated TF-IDF signals** stored in ChromaDB collection metadata, so document detection works for any file without manual curation. Signals are computed **per document** (never across the whole batch — a large file would otherwise donate its vocabulary to small files' detection rules) and the detection cache is invalidated on every ingest/delete, so new uploads route correctly without a restart.
+New uploads also get **auto-generated TF-IDF signals** stored in ChromaDB collection metadata, so document detection works for any file without manual curation. Signals are computed **per document** (never across the whole batch -- a large file would otherwise donate its vocabulary to small files' detection rules) and the detection cache is invalidated on every ingest/delete, so new uploads route correctly without a restart.
 
 ---
 
@@ -166,13 +166,13 @@ New uploads also get **auto-generated TF-IDF signals** stored in ChromaDB collec
 ```
 rag-langgraph-langchain/
 ├── config/
-│   └── settings.py              # Pydantic Settings: env vars → typed config
+│   └── settings.py              # Pydantic Settings: env vars -> typed config
 │
 ├── src/
 │   ├── agents/                  # Agent logic
 │   │   ├── graph.py             # LangGraph StateGraph (THE core)
 │   │   ├── prompts.py           # Shared prompts, grounding rules, parsers
-│   │   ├── router.py            # Thin dispatcher → invokes graph
+│   │   ├── router.py            # Thin dispatcher -> invokes graph
 │   │   ├── due_diligence.py     # DD agent wrapper
 │   │   ├── term_sheet.py        # Term sheet agent wrapper
 │   │   ├── lp_report.py         # LP report agent wrapper
@@ -196,10 +196,6 @@ rag-langgraph-langchain/
 │   │   ├── llm_cache.py         # TTL-based LLM response cache (1hr, 500 entries)
 │   │   └── doc_signals.py       # TF-IDF keyword extraction for auto-signals
 │   │
-│   ├── ui/
-│   │   ├── app.py               # Streamlit: chat UI, file upload, conversation memory
-│   │   └── components.py        # Reusable render functions for each agent type
-│   │
 │   └── api/
 │       ├── main.py              # FastAPI app setup
 │       ├── deps.py              # Dependency injection
@@ -222,7 +218,13 @@ rag-langgraph-langchain/
 │   ├── eval_tricky.py           # Adversarial QA check (15 tricky questions)
 │   └── verify_changes.py        # E2E verification script (14 tests)
 │
-├── run.sh                       # Full app launcher (API + Streamlit)
+├── frontend/                    # Next.js application (dynamic pages)
+│   └── src/
+│       ├── app/                 # Next.js App Router pages
+│       ├── components/          # Reusable UI components
+│       └── lib/                 # API client, types, utilities
+│
+├── run.sh                       # App launcher (FastAPI API server)
 ├── pyproject.toml               # Dependencies, ruff, pytest, mypy config
 ├── .env.example                 # Environment template
 └── .gitignore
@@ -259,7 +261,7 @@ flowchart TD
 - **TXT/MD**: Splits by double-newlines into paragraphs, tracking line numbers.
 
 **chunker.py** uses LangChain's `RecursiveCharacterTextSplitter`:
-- Splits by `\n\n` → `\n` → `. ` → ` ` → `""` (recursive fallback)
+- Splits by `\n\n` -> `\n` -> `. ` -> ` ` -> `""` (recursive fallback)
 - Each chunk gets metadata: filename, page, line, chunk_index, total_chunks
 - At ingest time, TF-IDF keywords are extracted per document and stored as auto-signals
 
@@ -269,17 +271,17 @@ flowchart TD
 flowchart TD
     Q["User Query:<br/>Who is the CEO of Acme Corp?"]
 
-    S1["Step 1: CLASSIFY (classify_node)<br/>Fast path: keyword matching against _KW_MAP<br/>liquidation preference → term_sheet<br/>sfc compliance → compliance<br/>Slow path: LLM classification (only for ambiguous queries)<br/>Result: due_diligence"]
+    S1["Step 1: CLASSIFY (classify_node)<br/>Fast path: keyword matching against _KW_MAP<br/>liquidation preference -> term_sheet<br/>sfc compliance -> compliance<br/>Slow path: LLM classification (only for ambiguous queries)<br/>Result: due_diligence"]
 
     S2["Step 2: SEARCH (search_node)<br/>2a. Detect target document via keyword signals<br/>2b. Generate query variants: original, keywords, synonyms<br/>2c. Search scoped to detected doc (k=20) or all collections (k=10, merge)<br/>2d. Filter by MAX_DISTANCE=2.0 (L2 similarity threshold)<br/>Result: 4 source chunks with [Source N: filename, page, line]"]
 
-    S3["Step 3: NARROW (narrow_node)<br/>If ≤4 sources: keep all<br/>If >4 sources from same document: keep top 16<br/>If >4 sources from mixed documents: LLM picks top-3<br/>Result: filtered sources"]
+    S3["Step 3: NARROW (narrow_node)<br/>If <=4 sources: keep all<br/>If >4 sources from same document: keep top 16<br/>If >4 sources from mixed documents: LLM picks top-3<br/>Result: filtered sources"]
 
     S4["Step 4: ANSWER (answer_node)<br/>Build prompt: system prompt + grounding rules + retrieved docs + question<br/>LLM generates answer with [Source N: ...] citations<br/>Check: does answer say not found?"]
 
-    S5["Step 5: VERIFY (verify_node)<br/>Re-examine the SAME sources with a focused prompt<br/>If found → return corrected answer, verified=True<br/>If still not found → verified=False → trigger wide_search"]
+    S5["Step 5: VERIFY (verify_node)<br/>Re-examine the SAME sources with a focused prompt<br/>If found -> return corrected answer, verified=True<br/>If still not found -> verified=False -> trigger wide_search"]
 
-    S6["Step 6: WIDE SEARCH (wide_search_node)<br/>Deep search with k=60 (vs normal k=10-20)<br/>Search original query + keyword variant<br/>Deduplicate, format, re-ask with verification prompt<br/>If found → return answer / If not → accept not-found, end"]
+    S6["Step 6: WIDE SEARCH (wide_search_node)<br/>Deep search with k=60 (vs normal k=10-20)<br/>Search original query + keyword variant<br/>Deduplicate, format, re-ask with verification prompt<br/>If found -> return answer / If not -> accept not-found, end"]
 
     V{verified?}
     E(["END"])
@@ -297,18 +299,18 @@ flowchart TD
 Each agent type has a dedicated parser that converts LLM text output into structured Pydantic models:
 
 ```python
-# Due Diligence → DueDiligenceResult
+# Due Diligence -> DueDiligenceResult
 # Parses: SUMMARY, RISKS, OPPORTUNITIES, RECOMMENDATION sections
 
-# Term Sheet → TermSheetData
+# Term Sheet -> TermSheetData
 # Parses 19 fields: COMPANY_NAME, ROUND_TYPE, PRE_MONEY_VALUATION,
 #   INVESTMENT_AMOUNT, LIQUIDATION_PREFERENCE, ANTI_DILUTION,
 #   BOARD_SEATS, ESOP_POOL, PROTECTIVE_PROVISIONS, etc.
 
-# LP Report → LPReport
+# LP Report -> LPReport
 # Parses: QUARTER, HIGHLIGHTS, FINANCIAL_SUMMARY, RISK_FACTORS
 
-# Compliance → ComplianceCheck
+# Compliance -> ComplianceCheck
 # Parses: DOCUMENT_NAME, COMPLIANT, ISSUES, JURISDICTION,
 #   REGULATIONS_CHECKED
 ```
@@ -326,12 +328,12 @@ The search tool doesn't just do a single vector similarity search. It combines *
 | Strategy | What it does | When it helps |
 |----------|-------------|---------------|
 | **Primary search** | Standard vector similarity on the query | Always runs |
-| **Keyword extraction** | Strips stop words, searches bare terms | "What is the ARR?" → searches "ARR" |
-| **Synonym expansion** | Adds related terms | "email" → searches "email contact address" |
-| **Year stripping** | Removes years from query | "2025 Conference" → searches "Conference" |
+| **Keyword extraction** | Strips stop words, searches bare terms | "What is the ARR?" -> searches "ARR" |
+| **Synonym expansion** | Adds related terms | "email" -> searches "email contact address" |
+| **Year stripping** | Removes years from query | "2025 Conference" -> searches "Conference" |
 | **Document scoping** | Searches only the detected document's collection | Prevents 522-chunk Annual Report from drowning 5-chunk CV |
 
-**Relevance threshold:** `MAX_DISTANCE = 2.0` — results above this L2 distance are discarded. This prevents unrelated documents (weather, sports) from appearing in results.
+**Relevance threshold:** `MAX_DISTANCE = 2.0` -- results above this L2 distance are discarded. This prevents unrelated documents (weather, sports) from appearing in results.
 
 ### 2. Citation System
 
@@ -349,7 +351,7 @@ Sarah Chen is the CEO and Founder of Acme Corp.
 
 ### 3. Conversation Memory
 
-The Streamlit UI passes the last 6 messages as `conversation_history` to the graph. The history is injected into both the classification step (to disambiguate follow-ups like "and its CEO?") and the answer prompt, so multi-turn references actually work.
+The Next.js UI passes the last 6 messages as `conversation_history` to the graph. The history is injected into both the classification step (to disambiguate follow-ups like "and its CEO?") and the answer prompt, so multi-turn references actually work.
 
 ### 4. LLM Response Caching
 
@@ -370,7 +372,7 @@ This means **any uploaded PDF immediately gets smart routing** without manual ke
 ### 6. File Upload
 
 Documents can be uploaded via:
-- **Streamlit sidebar**: Drag-and-drop PDF, TXT, or MD files. Auto-ingested into vector store.
+- **Next.js Documents page**: Drag-and-drop PDF, TXT, or MD files. Auto-ingested into vector store.
 - **API endpoint**: `POST /api/documents/upload` with multipart form data.
 
 ### 7. Grounding Rules
@@ -386,7 +388,7 @@ All agents follow strict grounding rules to prevent hallucination:
 
 When the LLM says "not found", the system doesn't give up:
 1. **Re-examine** the same sources with a focused, neutral prompt
-2. **Wide search** across all collections with fair per-document sampling — chunks are interleaved round-robin across documents (never score-ordered from one dominant file), and document detection is NOT re-applied, since reaching this node means the earlier scoping decision was suspect
+2. **Wide search** across all collections with fair per-document sampling -- chunks are interleaved round-robin across documents (never score-ordered from one dominant file), and document detection is NOT re-applied, since reaching this node means the earlier scoping decision was suspect
 3. **Re-answer** with the expanded context
 
 This catches misrouting (e.g. a query about the CV mentioning "Archbridge" being scoped to the Acme memo) and cases where the answer exists but the LLM initially missed it. The rescue answer may be free-form (no section headers); the parser falls back to using the full text so it isn't dropped.
@@ -403,6 +405,7 @@ Single-document results keep all sources (up to 16) since small documents need e
 
 ### Prerequisites
 - Python 3.11+
+- Node.js 18+
 - DeepSeek API key (get one at https://platform.deepseek.com)
 
 ### Installation
@@ -416,8 +419,11 @@ cd rag-langgraph-langchain
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -e ".[dev]"
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 
 # Set up environment
 cp .env.example .env
@@ -434,23 +440,24 @@ python scripts/ingest.py
 
 **Option A: Full launcher (recommended)**
 ```bash
+# Terminal 1: Start FastAPI backend
 ./run.sh
-# Starts both FastAPI (port 8000) and Streamlit (port 8501)
+
+# Terminal 2: Start Next.js frontend
+cd frontend && npm run dev
 ```
 
 **Option B: Individual services**
 ```bash
-# Streamlit UI only
-streamlit run src/ui/app.py
-
-# FastAPI only
+# Backend only
 uvicorn src.api.main:app --reload
+
+# Frontend only
+cd frontend && npm run dev
 ```
 
 **Option C: With flags**
 ```bash
-./run.sh --ui-only          # Streamlit only
-./run.sh --api-only         # FastAPI only
 ./run.sh --skip-install     # Skip pip install
 ./run.sh --skip-ingest      # Skip document ingestion
 ./run.sh --api-port=9000    # Custom API port
@@ -458,7 +465,7 @@ uvicorn src.api.main:app --reload
 
 ### Upload Your Own Documents
 
-Via Streamlit: Use the sidebar file uploader (PDF, TXT, MD supported).
+Via Next.js: Use the Documents page file uploader (PDF, TXT, MD supported).
 
 Via API:
 ```bash
@@ -473,7 +480,6 @@ curl -X POST http://localhost:8000/api/documents/upload \
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
-| `GET` | `/` | API information |
 | `GET` | `/api/agents` | List available agents |
 | `POST` | `/api/agents/execute` | Execute an agent with a query |
 | `POST` | `/api/documents/upload` | Upload a document (auto-ingested) |
@@ -569,7 +575,7 @@ Vector search alone can't scope to the right document when multiple documents ar
 
 ### Why a verification loop?
 
-LLMs sometimes say "not found" when the answer IS in the context — especially with large retrieval sets. The verification node re-examines with a focused, neutral prompt, catching false negatives and misroutes. The loop is gated to fire only on real misses (explicit not-found statements, empty or citation-only answers), so it costs ~2.2 LLM calls per question instead of 4.
+LLMs sometimes say "not found" when the answer IS in the context -- especially with large retrieval sets. The verification node re-examines with a focused, neutral prompt, catching false negatives and misroutes. The loop is gated to fire only on real misses (explicit not-found statements, empty or citation-only answers), so it costs ~2.2 LLM calls per question instead of 4.
 
 ### Why LLM caching?
 

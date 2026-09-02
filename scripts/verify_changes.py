@@ -24,7 +24,7 @@ def test_graph_builds():
     from src.agents.graph import build_agent_graph, AgentState
     graph = build_agent_graph()
     assert graph is not None
-    print("  ✅ Graph builds and compiles")
+    print("  [PASS] Graph builds and compiles")
 
 
 # ---------------------------------------------------------------------------
@@ -35,10 +35,10 @@ def test_keyword_classification():
     assert _classify_keyword("What is the liquidation preference?") == "term_sheet"
     assert _classify_keyword("Check SFC compliance") == "compliance"
     assert _classify_keyword("Generate LP report") == "lp_report"
-    assert _classify_keyword("Who is the CEO?") is None  # ambiguous → LLM fallback
+    assert _classify_keyword("Who is the CEO?") is None  # ambiguous -> LLM fallback
     assert _classify_keyword("Anti-dilution provisions") == "term_sheet"
     assert _classify_keyword("AMLO regulations check") == "compliance"
-    print("  ✅ Keyword classification works")
+    print("  [PASS] Keyword classification works")
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ def test_parsers():
     # Term sheet with citations stripped from values
     ts2 = _parse_term_sheet("COMPANY_NAME: Acme Corp [Source 1: memo.md, p.1]\nROUND_TYPE: Series A\nPRE_MONEY_VALUATION: $50M [Source 1: memo.md, p.1]\nINVESTMENT_AMOUNT: $10M\nLIQUIDATION_PREFERENCE: 1x\nANTI_DILUTION: Broad-based\nBOARD_SEATS: 2 investor")
     assert ts2["company_name"] == "Acme Corp"
-    assert ts2["pre_money_valuation"] == 50.0  # $50M → first number extracted is 50
+    assert ts2["pre_money_valuation"] == 50.0  # $50M -> first number extracted is 50
 
     # LP report
     lp = _parse_lp_report("QUARTER: Q1 2026\nHIGHLIGHTS: Growth; Expansion\nFINANCIAL_SUMMARY: revenue: 5000000\nRISK_FACTORS: Market risk")
@@ -88,7 +88,7 @@ def test_parsers():
     cp2 = _parse_compliance("DOCUMENT_NAME: Doc\nCOMPLIANT: false\nISSUES: Missing KYC\nJURISDICTION: HK\nREGULATIONS_CHECKED: AMLO")
     assert cp2["compliant"] is False
 
-    print("  ✅ All 4 parsers produce valid output")
+    print("  [PASS] All 4 parsers produce valid output")
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ def test_clean_citations():
     assert clean_citations("Sarah Chen [Source: cv.pdf, p.1, line 3]") == "Sarah Chen"
     assert clean_citations("No citations here") == "No citations here"
     assert clean_citations("") == ""
-    print("  ✅ clean_citations strips citation tags correctly")
+    print("  [PASS] clean_citations strips citation tags correctly")
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ def test_says_not_found():
     # verify/wide_search loop on every answer
     assert not says_not_found("RECOMMENDATION: Insufficient data to recommend.")
     assert not says_not_found("PRICE_PER_SHARE: Not available")
-    print("  ✅ says_not_found detects not-found phrases correctly")
+    print("  [PASS] says_not_found detects not-found phrases correctly")
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ def test_llm_cache():
     assert cache.get("foo") == "bar"
     cache.clear()
     assert cache.size == 0
-    print("  ✅ LLM cache works (set, get, LRU eviction, clear)")
+    print("  [PASS] LLM cache works (set, get, LRU eviction, clear)")
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ def test_auto_signal_extraction():
     pos, neg = extract_doc_signals(chunks, top_n=10)
     assert len(pos) > 0, "Should extract positive signals"
     assert "acme" in pos or "corp" in pos or "sarah" in pos, f"Expected domain keywords, got: {list(pos.keys())[:10]}"
-    print(f"  ✅ Auto-signal extraction produces {len(pos)} positive signals")
+    print(f"  [PASS] Auto-signal extraction produces {len(pos)} positive signals")
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ def test_vector_store_search():
         assert "score" in results[0], "Results should have scores"
         assert "content" in results[0], "Results should have content"
         assert results[0]["score"] >= 0, "Score should be non-negative"
-        print(f"  ✅ Vector store search returns {len(results)} scored results")
+        print(f"  [PASS] Vector store search returns {len(results)} scored results")
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_document_detection_with_auto_signals():
         result = _detect_document("What is the CEO?", store)
         # With no documents, should return None
         assert result is None
-    print("  ✅ Document detection handles empty store gracefully")
+    print("  [PASS] Document detection handles empty store gracefully")
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +216,7 @@ def test_agent_wrappers_instantiate():
         assert hasattr(lp, "graph") and hasattr(lp, "search_tool")
         assert hasattr(cp, "graph") and hasattr(cp, "search_tool")
         assert hasattr(router, "graph")
-    print("  ✅ All agent wrappers instantiate correctly")
+    print("  [PASS] All agent wrappers instantiate correctly")
 
 
 # ---------------------------------------------------------------------------
@@ -256,11 +256,11 @@ def test_e2e_mock_pipeline():
             call_args = mock_graph.invoke.call_args[0][0]
             assert call_args["query"] == "Who is the CEO?"
             assert call_args["agent_type"] == "due_diligence"
-    print("  ✅ E2E mock pipeline: routing, parsing, citations all correct")
+    print("  [PASS] E2E mock pipeline: routing, parsing, citations all correct")
 
 
 # ---------------------------------------------------------------------------
-# Test 12: Graph conditional edges (verify → end vs wide_search)
+# Test 12: Graph conditional edges (verify -> end vs wide_search)
 # ---------------------------------------------------------------------------
 def test_graph_conditional_edges():
     from src.agents.graph import should_classify, should_verify, after_verify
@@ -271,7 +271,7 @@ def test_graph_conditional_edges():
     # Forced agent types skip classification entirely
     assert should_classify({"agent_type_forced": True}) == "search"
     assert should_classify({"agent_type_forced": False}) == "classify"
-    print("  ✅ Graph conditional edges route correctly")
+    print("  [PASS] Graph conditional edges route correctly")
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +285,7 @@ def test_safe_float():
     assert _safe_float("not available") == 0.0
     assert _safe_float("") == 0.0
     assert _safe_float("€1,500/month") == 1500.0
-    print("  ✅ _safe_float handles currency, commas, citations, edge cases")
+    print("  [PASS] _safe_float handles currency, commas, citations, edge cases")
 
 
 # ---------------------------------------------------------------------------
@@ -301,14 +301,14 @@ def test_semicolon_list():
     assert result3 == []
     result4 = _semicolon_list("Item 1; Not specified; Item 2")
     assert result4 == ["Item 1", "Item 2"]
-    print("  ✅ _semicolon_list filters and splits correctly")
+    print("  [PASS] _semicolon_list filters and splits correctly")
 
 
 # ---------------------------------------------------------------------------
 # Run all tests
 # ---------------------------------------------------------------------------
 def main():
-    print("🔍 Running verification tests...\n")
+    print("[RUN] Running verification tests...\n")
     tests = [
         test_graph_builds,
         test_keyword_classification,
@@ -333,7 +333,7 @@ def main():
             test()
             passed += 1
         except Exception as e:
-            print(f"  ❌ {test.__name__}: {e}")
+            print(f"  [FAIL] {test.__name__}: {e}")
             failed += 1
 
     print(f"\n{'='*50}")
