@@ -1,6 +1,8 @@
 """FastAPI application for PE AI Engineering API."""
 
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +11,7 @@ from config.settings import settings
 from src.api.deps import set_vector_store
 from src.api.routes.agents import router as agents_router
 from src.api.routes.documents import router as documents_router
+from src.api.routes.summary import router as summary_router
 from src.vector_store.chroma import VectorStore
 
 
@@ -18,18 +21,15 @@ async def lifespan(app: FastAPI):
     vector_store = VectorStore()
     set_vector_store(vector_store)
     yield
-    # Cleanup
 
 
 app = FastAPI(
-    title="PE AI Engineering API",
-    description="AI-powered Private Equity workflow automation with RAG and multi-agent systems",
+    title="JonathanSimpson AI Platform",
+    description="AI-powered Private Equity workflow automation",
     version="0.1.0",
     lifespan=lifespan,
 )
 
-# CORS middleware — allow_credentials=False because allow_origins=["*"]
-# violates the CORS spec when credentials=True (browsers reject it).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -38,9 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
+app.include_router(summary_router, prefix="/api/summary", tags=["summary"])
 
 
 @app.get("/health")
@@ -49,12 +49,10 @@ async def health_check():
     return {"status": "healthy", "version": "0.1.0"}
 
 
-@app.get("/")
-async def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "PE AI Engineering API",
-        "version": "0.1.0",
-        "description": "AI-powered Private Equity workflow automation",
-        "docs": "/docs",
-    }
+@app.get("/api/eval/results")
+async def eval_results():
+    """Return eval results JSON."""
+    result_file = Path("scripts/eval_results.json")
+    if not result_file.exists():
+        return {"error": "No eval results found"}
+    return json.loads(result_file.read_text())
