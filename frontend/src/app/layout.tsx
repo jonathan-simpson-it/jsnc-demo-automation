@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { ApiKeyProvider } from "@/components/ApiKeyProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,10 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Header />
-        <main id="main-content" className="min-h-screen">
-          {children}
-        </main>
+        <ApiKeyProvider>
+          <Header />
+          <main id="main-content" className="min-h-screen">
+            {children}
+          </main>
+        </ApiKeyProvider>
         <Footer />
       </body>
     </html>
