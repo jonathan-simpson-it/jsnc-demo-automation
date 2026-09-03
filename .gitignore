@@ -57,3 +57,5 @@ frontend/.next/
 .DS_Store
 Thumbs.db
 .freebuff/
+.playwright-mcp/
+frontend/tsconfig.tsbuildinfo
