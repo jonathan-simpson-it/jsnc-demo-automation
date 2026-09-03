@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { KeySettings } from "@/components/KeySettings";
 
 const NAV = [
   { label: "Chat", href: "/chat" },
@@ -22,7 +23,7 @@ export default function Header() {
         <div className="container flex items-center justify-between h-14 gap-2">
           <Link
             href="/"
-            className="flex items-center shrink-0"
+            className="flex items-center gap-3 shrink-0 -ml-2"
             aria-label="Jonathan Simpson & Co. — home"
           >
             <img
@@ -33,6 +34,7 @@ export default function Header() {
               className="rounded-sm"
               style={{ objectFit: "cover" }}
             />
+            <span className="text-sm font-semibold tracking-tight whitespace-nowrap hidden sm:inline" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Jonathan Simpson & Co.</span>
           </Link>
           <nav
             className="main-nav flex items-center gap-1 overflow-x-auto"
@@ -55,6 +57,7 @@ export default function Header() {
               </Link>
             ))}
           </nav>
+          <KeySettings />
         </div>
       </header>
     </>
