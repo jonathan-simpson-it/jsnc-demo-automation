@@ -232,7 +232,9 @@ function ChatInner() {
   const [agentType, setAgentType] = useState(initialAgent);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingNode, setStreamingNode] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+  const convScrollRef = useRef<HTMLDivElement>(null);
+  const stickBottomRef = useRef(true);
+  const justSwitchedRef = useRef(false);
 
   // --- Composer: attachments + @-mentions ---
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
@@ -318,8 +320,35 @@ function ChatInner() {
     return () => window.clearTimeout(t);
   }, []);
 
+  // Auto-scroll rule: follow the conversation only while the user is already
+  // near the bottom (sticky). Entering a question while reading history above
+  // must not yank the view down; the composer is pinned, so idle submissions
+  // need no scrolling. Opening a conversation or starting a new chat jumps
+  // straight to the latest message (instant, no animation).
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = convScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      stickBottomRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const el = convScrollRef.current;
+    if (!el) return;
+    if (justSwitchedRef.current) {
+      justSwitchedRef.current = false;
+      el.scrollTop = el.scrollHeight;
+      stickBottomRef.current = true;
+      return;
+    }
+    if (stickBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
   }, [messages, isStreaming]);
 
   const { hasKey, serverKeyConfigured } = useApiKey();
@@ -331,6 +360,7 @@ function ChatInner() {
       const res = await fetchConversationMessages(conv.id);
       setActiveConv(conv.id);
       setThreadProjectId(conv.project_id ?? null);
+            justSwitchedRef.current = true;
       setMessages(res.messages.length ? res.messages.map(serverMessageToLocal) : []);
     } catch {
       /* skip */
@@ -343,6 +373,7 @@ function ChatInner() {
     if (isStreaming) return;
     setActiveConv(null);
     setThreadProjectId(workspace ? Number(workspace) : null);
+    justSwitchedRef.current = true;
     setMessages([
       {
         id: "welcome",
@@ -916,6 +947,7 @@ function ChatInner() {
 
         {/* Messages */}
         <div
+          ref={convScrollRef}
           role="log"
           aria-label="Conversation"
           aria-live="polite"
@@ -1067,7 +1099,6 @@ function ChatInner() {
                 </div>
               )}
 
-              <div ref={endRef} />
             </div>
           )}
         </div>
