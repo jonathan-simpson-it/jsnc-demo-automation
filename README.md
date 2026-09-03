@@ -676,6 +676,15 @@ cd frontend && npx next build
 | `ONEDRIVE_CLIENT_ID` | (optional) | Microsoft OAuth client ID |
 | `ONEDRIVE_CLIENT_SECRET` | (optional) | Microsoft OAuth client secret |
 
+### Bring Your Own Key (BYOK)
+
+This platform is open source and works without a server-side key. Users add their own DeepSeek key via the "API key" button in the header:
+
+1. The key is stored **only in the browser** (`localStorage`) and is cleared with the Remove action.
+2. It is sent with every request as the `X-API-Key` header and never persisted, cached, or logged by the server.
+3. Per-request keys override the server's `DEEPSEEK_API_KEY`; when neither exists the API returns HTTP 402 (`code: "missing_api_key"`) and the UI prompts the user to add a key.
+4. A toast confirms the key was saved: "stored only in this browser, never on our servers."
+
 `EMBEDDING_MODEL`, `LOG_LEVEL`, `ENABLE_RERANKING`, and `ENABLE_ENTITY_LINKING` are declared in `config/settings.py` but are not yet consumed by the code; `ENABLE_BM25` is `true` by default, all other feature flags default to `false`.
 
 ---
