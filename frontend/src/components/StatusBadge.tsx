@@ -13,9 +13,9 @@ export default function StatusBadge() {
   }, []);
 
   const color = {
-    loading: "#eab308",
-    healthy: "#22c55e",
-    error: "#ef4444",
+    loading: "var(--color-muted)",
+    healthy: "var(--color-accent)",
+    error: "var(--color-error)",
   }[status];
   const label = {
     loading: "Checking...",

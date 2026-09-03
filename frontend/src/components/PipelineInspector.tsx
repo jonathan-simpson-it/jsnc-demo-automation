@@ -38,6 +38,8 @@ export default function PipelineInspector({
     >
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="pipeline-details"
         style={{
           width: "100%",
           padding: "0.5rem 1rem",
@@ -62,10 +64,10 @@ export default function PipelineInspector({
         }
       >
         <span>How I got this answer</span>
-        <span>{open ? "\u2212" : "+"}</span>
+        <span aria-hidden="true">{open ? "\u2212" : "+"}</span>
       </button>
       {open && (
-        <div style={{ padding: "0 1rem 1rem" }} className="space-y-3">
+        <div id="pipeline-details" style={{ padding: "0 1rem 1rem" }} className="space-y-3">
           {/* Confidence */}
           <div>
             <div
@@ -133,12 +135,6 @@ export default function PipelineInspector({
           <div className="space-y-1">
             {trace.map((e) => {
               const pct = Math.max(3, Math.round((e.ms / maxMs) * 100));
-              const color =
-                e.ms < 100
-                  ? "#22c55e"
-                  : e.ms < 500
-                    ? "#eab308"
-                    : "#ef4444";
               return (
                 <div
                   key={e.node}
@@ -152,7 +148,10 @@ export default function PipelineInspector({
                   <span
                     style={{
                       width: "6rem",
-                      color: "var(--color-muted)",
+                      color:
+                        e.node === summary.bottleneck && trace.length > 1
+                          ? "var(--color-accent)"
+                          : "var(--color-muted)",
                       fontWeight: 500,
                       flexShrink: 0,
                     }}
@@ -166,7 +165,7 @@ export default function PipelineInspector({
                     style={{
                       flex: 1,
                       height: "0.5rem",
-                      background: "var(--color-bg)",
+                      background: "var(--color-accent-soft)",
                       borderRadius: "999px",
                       overflow: "hidden",
                     }}
@@ -176,7 +175,10 @@ export default function PipelineInspector({
                         height: "100%",
                         borderRadius: "999px",
                         width: `${pct}%`,
-                        backgroundColor: color,
+                        backgroundColor:
+                          e.node === summary.bottleneck && trace.length > 1
+                            ? "var(--color-ink)"
+                            : "var(--color-accent)",
                       }}
                     />
                   </div>
@@ -200,9 +202,8 @@ export default function PipelineInspector({
             <div
               style={{
                 fontSize: "0.78rem",
-                color: "#92400e",
-                background: "#fffbeb",
-                border: "1px solid #fde68a",
+                color: "var(--color-ink)",
+                background: "var(--color-accent-soft)",
                 borderRadius: "var(--radius-md)",
                 padding: "0.5rem 0.75rem",
               }}

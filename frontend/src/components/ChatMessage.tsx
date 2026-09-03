@@ -1,5 +1,7 @@
 import type { TraceEntry } from "@/lib/types";
-import { parseCitation, traceSummary, formatMs } from "@/lib/utils";
+import { traceSummary, formatMs } from "@/lib/utils";
+import CitationList from "@/components/CitationList";
+import StructuredOutput from "@/components/StructuredOutput";
 
 interface Props {
   role: "user" | "assistant";
@@ -7,9 +9,19 @@ interface Props {
   agentType?: string;
   citations?: string[];
   trace?: TraceEntry[];
-  suggestions?: string[];
-  onSuggestionClick?: (query: string) => void;
+  /** Workspace label whose documents grounded this message, e.g. "JS&C › Personal". */
+  scopeLabel?: string;
 }
+
+const scopeCaptionStyle = {
+  fontSize: "0.68rem",
+  fontWeight: 500,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase" as const,
+  color: "var(--color-muted)",
+  opacity: 0.85,
+  whiteSpace: "nowrap" as const,
+};
 
 export default function ChatMessage({
   role,
@@ -17,131 +29,138 @@ export default function ChatMessage({
   agentType,
   citations = [],
   trace = [],
-  suggestions = [],
-  onSuggestionClick,
+  scopeLabel,
 }: Props) {
   if (role === "user") {
     return (
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <div
           style={{
-            maxWidth: "70%",
-            padding: "0.75rem 1rem",
-            borderRadius: "1rem 1rem 0.25rem 1rem",
-            background: "var(--color-accent)",
-            color: "white",
-            fontSize: "0.88rem",
-            lineHeight: 1.6,
+            display: "grid",
+            justifyItems: "end",
+            gap: "0.28rem",
+            maxWidth: "min(80%, 70rem)",
           }}
         >
-          {content}
+          <div
+            style={{
+              padding: "0.7rem 1.05rem",
+              borderRadius: "1.25rem 1.25rem 0.4rem 1.25rem",
+              background: "var(--color-accent)",
+              color: "white",
+              fontSize: "0.92rem",
+              lineHeight: 1.6,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {content}
+          </div>
+          {scopeLabel && <span style={scopeCaptionStyle}>{scopeLabel}</span>}
         </div>
       </div>
     );
   }
 
   const summary = traceSummary(trace);
+  const agentName = agentType?.replace(/_/g, " ");
 
   return (
-    <div style={{ display: "flex" }}>
-      <div style={{ maxWidth: "85%" }}>
+    <div
+      style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-line)",
+        borderRadius: "1.25rem 1.25rem 1.25rem 0.4rem",
+        padding: "0.85rem 1.1rem",
+        maxWidth: "100%",
+        fontSize: "0.92rem",
+        lineHeight: 1.65,
+        color: "var(--color-ink)",
+      }}
+    >
+      {(agentName || scopeLabel) && (
         <div
           style={{
-            padding: "1rem 1.25rem",
-            borderRadius: "1rem 1rem 1rem 0.25rem",
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-line)",
-            fontSize: "0.88rem",
-            lineHeight: 1.6,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.2rem 0.6rem",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "0.4rem",
           }}
         >
-          {agentType && (
-            <div
+          {agentName && (
+            <span
               style={{
-                fontSize: "0.72rem",
-                color: "var(--color-accent)",
+                fontSize: "0.66rem",
+                fontWeight: 600,
+                color: "var(--color-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
-                marginBottom: "0.5rem",
+              }}
+            >
+              {agentName}
+            </span>
+          )}
+          {scopeLabel && (
+            <span
+              style={{
+                fontSize: "0.62rem",
                 fontWeight: 500,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "var(--color-accent)",
+                border: "1px solid var(--color-line)",
+                borderRadius: "999px",
+                padding: "0.08rem 0.55rem",
+                background: "var(--color-bg)",
+                whiteSpace: "nowrap",
               }}
             >
-              {agentType.replace(/_/g, " ")}
-            </div>
-          )}
-          <div style={{ color: "var(--color-ink)", whiteSpace: "pre-wrap" }}>
-            {content}
-          </div>
-          {citations.length > 0 && (
-            <div
-              style={{
-                marginTop: "0.75rem",
-                paddingTop: "0.75rem",
-                borderTop: "1px solid var(--color-line)",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  color: "var(--color-muted)",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Sources
-              </span>
-              <div className="space-y-1" style={{ marginTop: "0.25rem" }}>
-                {citations.map((c, i) => {
-                  const p = parseCitation(c);
-                  return (
-                    <div
-                      key={i}
-                      style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}
-                    >
-                      {p.filename}, page {p.page}, line {p.line}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {trace.length > 0 && (
-            <div
-              style={{
-                marginTop: "0.5rem",
-                fontSize: "0.72rem",
-                color: "var(--color-muted)",
-                opacity: 0.7,
-              }}
-            >
-              Pipeline: {summary.path.join(" -> ")} ({formatMs(summary.totalMs)})
-            </div>
+              {scopeLabel}
+            </span>
           )}
         </div>
+      )}
+      <StructuredOutput text={content} />
 
-        {/* Suggested queries */}
-        {suggestions.length > 0 && onSuggestionClick && (
-          <div
+      {citations.length > 0 && (
+        <div
+          style={{
+            marginTop: "0.7rem",
+            paddingTop: "0.7rem",
+            borderTop: "1px solid var(--color-line)",
+          }}
+        >
+          <span
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "0.5rem",
-              marginTop: "0.75rem",
+              fontSize: "0.68rem",
+              color: "var(--color-muted)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
             }}
           >
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                className="suggestion-chip"
-                onClick={() => onSuggestionClick(s)}
-              >
-                {s}
-              </button>
-            ))}
+            Sources ({citations.length})
+          </span>
+          <div style={{ marginTop: "0.35rem" }}>
+            <CitationList citations={citations} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {trace.length > 0 && (
+        <div
+          style={{
+            marginTop: "0.5rem",
+            fontSize: "0.7rem",
+            color: "var(--color-muted)",
+            opacity: 0.75,
+          }}
+        >
+          {summary.path.join(" -> ")} ({formatMs(summary.totalMs)})
+        </div>
+      )}
     </div>
   );
 }
