@@ -38,5 +38,9 @@ class Settings(BaseSettings):
     enable_human_review: bool = False
     enable_entity_linking: bool = False
 
+    # Regulatory Radar (SFC/HKMA polling)
+    enable_regulatory_poll: bool = True
+    regulatory_poll_hours: int = 24
+
 
 settings = Settings()
