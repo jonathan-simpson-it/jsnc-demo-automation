@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { fetchRegulatoryFeed, generateSummary } from "@/lib/api";
-import type { RegulatoryFeedItem, SummaryResponse } from "@/lib/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import {
+  fetchGraphMail,
+  fetchGraphMailStatus,
+  fetchRegulatoryFeed,
+  generateSummary,
+} from "@/lib/api";
+import type {
+  GraphEmail,
+  GraphMailStatus,
+  RegulatoryFeedItem,
+  SummaryResponse,
+} from "@/lib/types";
+import RegulatorMark from "@/components/RegulatorMark";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -37,43 +49,67 @@ function dayKey(date: Date): string {
   return `${date.getFullYear()}-${m}-${d}`;
 }
 
+function pickDefaultDay(radar: RegulatoryFeedItem[], mail: GraphEmail[]): string {
+  const keys: string[] = [];
+  for (const item of radar) {
+    const d = toIso(item.issued_at);
+    if (d) keys.push(d);
+  }
+  for (const email of mail) {
+    const d = toIso(email.received_at);
+    if (d) keys.push(d);
+  }
+  const today = dayKey(new Date());
+  return keys.indexOf(today) >= 0 ? today : keys.sort().slice(-1)[0] || today;
+}
+
 interface CalendarDay {
   date: Date;
   key: string;
-  items: RegulatoryFeedItem[];
+  radar: RegulatoryFeedItem[];
+  mail: GraphEmail[];
   inMonth: boolean;
 }
 
 export default function HomeDashboard() {
+  const today = new Date();
+  const [view, setView] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [feed, setFeed] = useState<RegulatoryFeedItem[] | null>(null);
   const [report, setReport] = useState<SummaryResponse | null>(null);
+  const [emails, setEmails] = useState<GraphEmail[] | null>(null);
+  const [mailStatus, setMailStatus] = useState<GraphMailStatus | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const picked = useRef(false);
 
   useEffect(() => {
     fetchRegulatoryFeed()
-      .then((r) => {
-        const items = r.items ?? [];
-        setFeed(items);
-        if (!selected) {
-          const today = dayKey(new Date());
-          const dated = items
-            .map((i) => toIso(i.issued_at))
-            .filter((d): d is string => !!d)
-            .sort()
-            .reverse();
-          setSelected(items.some((i) => toIso(i.issued_at) === today) ? today : dated[0] || today);
+      .then((r) => setFeed(r.items ?? []))
+      .catch(() => setFeed([]));
+    fetchGraphMailStatus()
+      .then((st) => {
+        setMailStatus(st);
+        if (st.configured || st.demo) {
+          fetchGraphMail(50)
+            .then((r) => setEmails(r.emails))
+            .catch(() => setEmails([]));
+        } else {
+          setEmails([]);
         }
       })
-      .catch(() => setFeed([]));
+      .catch(() => {
+        setMailStatus(null);
+        setEmails([]);
+      });
     generateSummary("week")
       .then(setReport)
       .catch(() => setReport(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  useEffect(() => {
+    if (picked.current || feed === null || emails === null) return;
+    setSelected(pickDefaultDay(feed, emails));
+    picked.current = true;
+  }, [feed, emails]);
 
   const byDate = useMemo(() => {
     const map: Record<string, RegulatoryFeedItem[]> = {};
@@ -84,25 +120,69 @@ export default function HomeDashboard() {
     return map;
   }, [feed]);
 
+  const mailByDate = useMemo(() => {
+    const map: Record<string, GraphEmail[]> = {};
+    for (const email of emails ?? []) {
+      const d = toIso(email.received_at);
+      if (d) (map[d] = map[d] || []).push(email);
+    }
+    return map;
+  }, [emails]);
+
   const cells = useMemo(() => {
-    const first = new Date(year, month, 1);
+    const first = new Date(view.y, view.m, 1);
     const startPad = first.getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
     const out: CalendarDay[] = [];
     for (let p = 0; p < startPad; p++) {
-      const d = new Date(year, month, 1 - (startPad - p));
-      out.push({ date: d, key: dayKey(d), items: [], inMonth: false });
+      const d = new Date(view.y, view.m, 1 - (startPad - p));
+      out.push({ date: d, key: dayKey(d), radar: [], mail: [], inMonth: false });
     }
     for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, month, day);
+      const d = new Date(view.y, view.m, day);
       const k = dayKey(d);
-      out.push({ date: d, key: k, items: byDate[k] || [], inMonth: true });
+      out.push({
+        date: d,
+        key: k,
+        radar: byDate[k] || [],
+        mail: mailByDate[k] || [],
+        inMonth: true,
+      });
     }
     return out;
-  }, [year, month, byDate]);
+  }, [view, byDate, mailByDate]);
 
-  const selectedItems = selected ? byDate[selected] || [] : [];
-  const hasItems = feed?.some((i) => !!toIso(i.issued_at)) ?? false;
+  const firstAvailableIn = (y: number, m: number): string | null => {
+    const prefix = `${y}-${`${m + 1}`.padStart(2, "0")}`;
+    const keys = Object.keys(byDate)
+      .concat(Object.keys(mailByDate))
+      .filter((k) => k.startsWith(prefix))
+      .sort();
+    return keys[0] || null;
+  };
+
+  const shiftMonth = (delta: number) => {
+    const t = new Date(view.y, view.m + delta, 1);
+    const y = t.getFullYear();
+    const m = t.getMonth();
+    setView({ y, m });
+    setSelected(firstAvailableIn(y, m));
+    picked.current = true;
+  };
+
+  const goToToday = () => {
+    const n = new Date();
+    setView({ y: n.getFullYear(), m: n.getMonth() });
+    setSelected(pickDefaultDay(feed ?? [], emails ?? []));
+    picked.current = true;
+  };
+
+  const nowDate = new Date();
+  const isCurrentMonth = view.y === nowDate.getFullYear() && view.m === nowDate.getMonth();
+
+  const selRadar = selected ? byDate[selected] || [] : [];
+  const selMail = selected ? mailByDate[selected] || [] : [];
+  const loaded = feed !== null && emails !== null;
 
   const latest = useMemo(() => {
     return [...(feed ?? [])]
@@ -115,6 +195,46 @@ export default function HomeDashboard() {
   const topAgent =
     report && report.agent_breakdown.length ? report.agent_breakdown[0] : null;
 
+  const navBtn: CSSProperties = {
+    width: "1.7rem",
+    height: "1.7rem",
+    padding: 0,
+    borderRadius: "999px",
+    border: "none",
+    background: "var(--color-accent-soft)",
+    color: "var(--color-ink)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    fontSize: "1.05rem",
+    lineHeight: 1,
+    flexShrink: 0,
+  };
+
+  const mailSender = (email: GraphEmail) =>
+    email.from && email.from_email && email.from !== email.from_email
+      ? `${email.from} · ${email.from_email}`
+      : email.from || email.from_email;
+
+  const mailSummary = (email: GraphEmail) => {
+    return (
+      <>
+        {mailSender(email)}
+        {email.received_at
+          ? ` · ${new Date(email.received_at).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}`
+          : ""}
+      </>
+    );
+  };
+
+  const inboxEmails = (emails ?? []).slice(0, 5);
+
   return (
     <div
       className="grid gap-6"
@@ -126,11 +246,60 @@ export default function HomeDashboard() {
     >
       {/* Calendar */}
       <div className="panel-card" style={{ padding: "1rem 1.1rem" }}>
-        <div className="section-intro" style={{ marginBottom: "0.5rem" }}>
-          <span className="section-eyebrow">Regulatory calendar</span>
-          <h2 style={{ fontSize: "1.1rem", margin: 0 }}>
-            {now.toLocaleString("en-US", { month: "long", year: "numeric" })}
-          </h2>
+        <div
+          className="section-intro"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: "0.5rem",
+            marginBottom: "0.5rem",
+          }}
+        >
+          <div>
+            <span className="section-eyebrow" style={{ marginBottom: "0.2rem" }}>
+              Radar &amp; inbox
+            </span>
+            <h2 style={{ fontSize: "1.1rem", margin: 0 }}>
+              {new Date(view.y, view.m, 1).toLocaleString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </h2>
+          </div>
+          <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => shiftMonth(-1)}
+              style={navBtn}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => shiftMonth(1)}
+              style={navBtn}
+            >
+              ›
+            </button>
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={goToToday}
+                style={{
+                  ...navBtn,
+                  width: "auto",
+                  padding: "0 0.7rem",
+                  fontSize: "0.74rem",
+                }}
+              >
+                Today
+              </button>
+            )}
+          </div>
         </div>
         <div
           style={{
@@ -165,18 +334,28 @@ export default function HomeDashboard() {
         >
           {cells.map((cell) => {
             const isSel = cell.key === selected;
-            const has = cell.items.length > 0;
+            const has = cell.radar.length > 0 || cell.mail.length > 0;
+            const counts = [
+              ...(cell.radar.length
+                ? [`${cell.radar.length} circular${cell.radar.length === 1 ? "" : "s"}`]
+                : []),
+              ...(cell.mail.length
+                ? [`${cell.mail.length} email${cell.mail.length === 1 ? "" : "s"}`]
+                : []),
+            ];
+            const label = `${cell.date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })} — ${counts.join(", ")}`;
             return (
               <button
                 key={cell.key}
                 type="button"
                 onClick={() => has && setSelected(cell.key)}
                 disabled={!has}
-                title={
-                  has
-                    ? `${cell.items.length} item${cell.items.length === 1 ? "" : "s"} — ${cell.items[0].title}`
-                    : undefined
-                }
+                title={has ? label : undefined}
+                aria-label={has ? label : undefined}
                 style={{
                   aspectRatio: "1 / 1",
                   display: "flex",
@@ -204,49 +383,287 @@ export default function HomeDashboard() {
                 {has && (
                   <span
                     style={{
-                      width: "0.35rem",
+                      display: "flex",
+                      gap: "0.14rem",
+                      alignItems: "center",
                       height: "0.35rem",
-                      borderRadius: "999px",
-                      background: isSel ? "var(--color-bg)" : "var(--color-accent)",
                     }}
-                  />
+                  >
+                    {cell.radar.length > 0 && (
+                      <span
+                        style={{
+                          width: "0.35rem",
+                          height: "0.35rem",
+                          borderRadius: "999px",
+                          background: isSel ? "var(--color-bg)" : "var(--color-accent)",
+                        }}
+                      />
+                    )}
+                    {cell.mail.length > 0 && (
+                      <span
+                        style={{
+                          width: "0.35rem",
+                          height: "0.35rem",
+                          borderRadius: "999px",
+                          background: isSel ? "var(--color-bg)" : "var(--color-ink)",
+                        }}
+                      />
+                    )}
+                  </span>
                 )}
               </button>
             );
           })}
         </div>
-        {hasItems && (
+        {loaded && (
           <div style={{ marginTop: "0.6rem" }}>
-            {selectedItems.length ? (
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.4rem" }}>
-                {selectedItems.slice(0, 5).map((item, idx) => (
-                  <li key={`${item.id}-${idx}`} style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "var(--color-ink)", textDecoration: "none" }}
+            {selRadar.length > 0 || selMail.length > 0 ? (
+              <ul
+                style={{
+                  margin: 0,
+                  padding: 0,
+                  listStyle: "none",
+                  display: "grid",
+                  gap: "0.5rem",
+                }}
+              >
+                {selRadar.slice(0, 5).map((item, idx) => (
+                  <li
+                    key={`r-${item.id}-${idx}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.5rem",
+                      fontSize: "0.8rem",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <span style={{ flexShrink: 0, lineHeight: 0 }}>
+                      <RegulatorMark code={item.regulator} size={14} link={false} />
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--color-ink)", textDecoration: "none" }}
+                      >
+                        {item.title}
+                      </a>
+                      <span
+                        style={{
+                          display: "block",
+                          color: "var(--color-muted)",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        {item.regulator} · {item.kind}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+                {selMail.slice(0, 5).map((email) => (
+                  <li
+                    key={`m-${email.id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.5rem",
+                      fontSize: "0.8rem",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        flexShrink: 0,
+                        lineHeight: 0,
+                        color: "var(--color-muted)",
+                        paddingTop: "0.16rem",
+                      }}
                     >
-                      {item.title}
-                    </a>
-                    <span style={{ color: "var(--color-muted)", fontSize: "0.7rem" }}>
-                      {" "}
-                      · {item.regulator} · {item.kind}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+                        <path d="m3.5 7.5 8.5 6 8.5-6" />
+                      </svg>
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <a
+                        href={email.web_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--color-ink)", textDecoration: "none" }}
+                      >
+                        {email.subject || "(no subject)"}
+                      </a>
+                      <span
+                        style={{
+                          display: "block",
+                          color: "var(--color-muted)",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        {mailSummary(email)}
+                      </span>
+                      {email.body_preview && (
+                        <span
+                          style={{
+                            display: "block",
+                            color: "var(--color-muted)",
+                            fontSize: "0.7rem",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {email.body_preview}
+                        </span>
+                      )}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
               <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-muted)" }}>
-                No news on {selected ? new Date(selected).toDateString() : "this day"}.
+                {selected
+                  ? `No circulars or mail on ${fmtIso(selected)}.`
+                  : "No circulars or mail in this month yet."}
               </p>
             )}
           </div>
         )}
       </div>
 
-      {/* Latest + report */}
+      {/* Inbox + report */}
       <div className="space-y-6">
+        <div className="panel-card" style={{ padding: "1rem 1.1rem" }}>
+          <div
+            className="section-intro"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <span className="section-eyebrow" style={{ marginBottom: "0.2rem" }}>
+                Inbox
+              </span>
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  margin: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {mailStatus?.configured || mailStatus?.demo
+                  ? `${mailStatus.mailbox || "Latest mail"}${mailStatus.demo ? " · demo" : ""}`
+                  : "Mailbox not connected"}
+              </h2>
+            </div>
+            <a
+              href="/summary"
+              style={{
+                fontSize: "0.72rem",
+                color: "var(--color-accent)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Email page →
+            </a>
+          </div>
+          {mailStatus === null ? (
+            <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)" }}>
+              Checking mailbox status…
+            </p>
+          ) : !mailStatus.configured && !mailStatus.demo ? (
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.82rem",
+                color: "var(--color-muted)",
+                lineHeight: 1.5,
+              }}
+            >
+              Add GRAPH_TENANT_ID, GRAPH_CLIENT_ID and GRAPH_CLIENT_SECRET to .env to show
+              mailbox activity on the calendar.
+            </p>
+          ) : mailStatus.demo && inboxEmails.length === 0 ? (
+            <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)" }}>
+              No demo messages yet.
+            </p>
+          ) : inboxEmails.length === 0 ? (
+            <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)" }}>
+              No messages in this mailbox yet.
+            </p>
+          ) : (
+            <ul
+              style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}
+            >
+              {inboxEmails.map((email) => (
+                <li key={email.id} style={{ fontSize: "0.82rem", lineHeight: 1.4, minWidth: 0 }}>
+                  <a
+                    href={email.web_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "var(--color-ink)",
+                      textDecoration: "none",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {email.subject || "(no subject)"}
+                  </a>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "var(--color-muted)",
+                      fontSize: "0.7rem",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {mailSender(email)}
+                    {email.received_at
+                      ? ` · ${new Date(email.received_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}`
+                      : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {mailStatus?.demo && (emails ?? []).length > 0 && (
+            <p
+              style={{
+                margin: "0.6rem 0 0",
+                fontSize: "0.72rem",
+                color: "var(--color-muted)",
+                lineHeight: 1.5,
+              }}
+            >
+              Demo mail — connect an Outlook mailbox via GRAPH_* to see real messages.
+            </p>
+          )}
+        </div>
+
         <div className="panel-card" style={{ padding: "1rem 1.1rem" }}>
           <div className="section-intro" style={{ marginBottom: "0.5rem" }}>
             <span className="section-eyebrow">Latest from the radar</span>
