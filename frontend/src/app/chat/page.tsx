@@ -23,6 +23,8 @@ import type {
 import ChatMessage from "@/components/ChatMessage";
 import PipelineInspector from "@/components/PipelineInspector";
 import StatusBadge from "@/components/StatusBadge";
+import { useApiKey } from "@/components/ApiKeyProvider";
+import { KeyPrompt } from "@/components/KeySettings";
 
 interface Message {
   id: string;
@@ -199,7 +201,7 @@ function serverMessageToLocal(m: ConversationMessage): Message {
   if (m.is_error) {
     const detail = content.replace(/^Error:\s*/i, "").trim().slice(0, 160);
     content = detail
-      ? `The model service couldn't complete this turn (${detail}). Check that DEEPSEEK_API_KEY is configured and the network allows api.deepseek.com, then try again.`
+      ? `The model service couldn't complete this turn (${detail}). Add your DeepSeek API key with the header API key button, then try again.`
       : "The model service couldn't complete this turn. Please try again.";
   }
   return {
@@ -319,6 +321,9 @@ function ChatInner() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
+
+  const { hasKey, serverKeyConfigured } = useApiKey();
+  const showKeyPrompt = !hasKey && !serverKeyConfigured;
 
   async function openConversation(conv: Conversation) {
     if (isStreaming) return;
@@ -505,7 +510,7 @@ function ChatInner() {
               id: `e-${Date.now()}`,
               role: "assistant",
               content:
-                "The model service couldn't be reached (connection error). Check that DEEPSEEK_API_KEY is configured and the network allows api.deepseek.com, then try again.",
+                "The model service couldn't be reached (connection error). Add your DeepSeek API key with the header API key button, then try again.",
             },
           ]);
         } else {
@@ -544,7 +549,7 @@ function ChatInner() {
       let friendly = "Something went wrong. Please try again.";
       if (msg.includes("500") || msg.includes("Stream")) {
         friendly =
-          "The backend couldn't process this request. Make sure DEEPSEEK_API_KEY is configured in your .env file.";
+          "The backend couldn't process this request. Add your DeepSeek API key with the header API key button.";
       } else if (msg.includes("401") || msg.includes("403")) {
         friendly = "Authentication failed. Check your API key configuration.";
       } else if (
@@ -1220,6 +1225,15 @@ function ChatInner() {
                     {uploadNotice.text}
                   </span>
                 </div>
+              )}
+
+              {/* First-run API key prompt (no user key and no server key) */}
+              {showKeyPrompt && (
+                <KeyPrompt
+                  onConfigure={() =>
+                    window.dispatchEvent(new Event("opencode:open-key-settings"))
+                  }
+                />
               )}
 
               <div className="composer">
