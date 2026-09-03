@@ -1,19 +1,40 @@
-"""Fixture-driven fetcher for SFC/HKMA regulatory listings.
+"""Fetchers for SFC/HKMA regulatory listings.
 
-Parsing rules target the fixture HTML under tests/fixtures/regulatory/ so the
-suite runs offline. When the network is available the same parser runs against
-live HTML (best-effort); any failure falls back to fixtures so the app never
-crashes in offline sandboxes.
+Three fetch strategies, all best-effort with offline-safe fallbacks:
+
+- "html": server-rendered <article> listing pages (fixture-backed).
+- "hkma_html": the HKMA news hub (https://www.hkma.gov.hk/eng/news-and-media/).
+  The hub page itself only carries navigation; the configured subsections
+  (press releases, speeches) are scraped from the hub, then each list page is
+  parsed for "<li>date</li><li><a>title</a>" entries.
+- "sfc_api": the SFC News site is a client-side app; listings come from the
+  same JSON search API the site uses
+  (https://apps.sfc.hk/edistributionWeb/api/news/search). Content pages are
+  fetched from the matching /api/news/content endpoint.
+
+Live fetches never crash the app: on any failure the parser falls back to a
+saved fixture when one exists, otherwise returns an empty list.
 """
 
+import json
 import re
 from html import unescape
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
-from src.regulatory.sources import RegulatorySource
+from src.regulatory.sources import (
+    HKMA_SUBSECTION_KINDS,
+    RegulatorySource,
+)
 
 DEFAULT_FIXTURE_DIR = "tests/fixtures/regulatory"
+
+# SFC API base discovered from the site's own bundle.
+SFC_API_BASE = "https://apps.sfc.hk/edistributionWeb"
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 
 
 class FetchError(Exception):
@@ -27,7 +48,74 @@ def _read_fixture(filename: str, base_dir: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _parse_listing(html: str, source: RegulatorySource) -> list[dict]:
+def _clean_html(raw: str) -> str:
+    return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
+
+
+# Boilerplate markers that terminate a page's main region (HKMA detail pages
+# carry the site chrome above and below the actual article).
+_REGION_END_MARKERS = (
+    "class=\"footer",
+    "id=\"footer",
+    "related information",
+    "back to top",
+    "what do you want to do",
+    "privacy policy",
+)
+
+
+def _main_region_html(html: str) -> str:
+    """Extract the article region of a content page when a recognizable
+    container exists; otherwise return the page unchanged."""
+    m = re.search(r'<div[^>]*class="[^"]*template-content-area[^"]*"[^>]*>', html, re.I)
+    if not m:
+        return html
+    region = html[m.end():]
+    low = region.lower()
+    cut = len(region)
+    for marker in _REGION_END_MARKERS:
+        idx = low.find(marker)
+        if idx > 0 and idx < cut:
+            cut = idx
+    return region[:cut]
+
+
+def _http_get_text(url: str, timeout: int = 20) -> str:
+    import httpx
+
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            resp = client.get(url, headers={"User-Agent": USER_AGENT})
+            resp.raise_for_status()
+            return resp.text
+    except Exception as exc:
+        raise FetchError(str(exc)) from exc
+
+
+def _http_post_json(url: str, body: dict, timeout: int = 20) -> dict:
+    import httpx
+
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            resp = client.post(
+                url,
+                json=body,
+                headers={
+                    "User-Agent": USER_AGENT,
+                    "Referer": "https://www.sfc.hk/en/News-and-announcements",
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        raise FetchError(str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Legacy server-rendered HTML (<article> blocks)
+# ---------------------------------------------------------------------------
+
+def _parse_article_listing(html: str, source: RegulatorySource) -> list[dict]:
     """Parse <article> blocks with a .title link and a .date element."""
     items = []
     for article in re.findall(r"<article>(.*?)</article>", html, re.S | re.I):
@@ -57,26 +145,149 @@ def _parse_listing(html: str, source: RegulatorySource) -> list[dict]:
     return items
 
 
+def _fetch_html_listing(source: RegulatorySource, http_get) -> list[dict]:
+    html = http_get(source.url)
+    return _parse_article_listing(html, source)
+
+
+# ---------------------------------------------------------------------------
+# HKMA news hub: discover subsection lists from the hub, then scrape each.
+# ---------------------------------------------------------------------------
+
+_HKMA_ITEM_RE = re.compile(
+    r"<ul>\s*<li>([^<]*)</li>\s*<li>\s*"
+    r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>',
+    re.S | re.I,
+)
+
+
+def _parse_hkma_list(html: str, list_url: str, kind: str) -> list[dict]:
+    items = []
+    for date_raw, href, raw_title in _HKMA_ITEM_RE.findall(html):
+        title = _clean_html(raw_title)
+        if not title or title in {"繁", "简"}:
+            continue
+        url = urljoin(list_url, href)
+        slug = urlparse(url).path.rstrip("/").split("/")[-1] or None
+        external_id = slug or re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:80]
+        items.append(
+            {
+                "external_id": external_id,
+                "title": title,
+                "url": url,
+                "issued_at": date_raw.strip() or None,
+                "kind": kind,
+            }
+        )
+    return items
+
+
+def _fetch_hkma_hub(source: RegulatorySource, http_get) -> list[dict]:
+    """Scrape the HKMA news hub by following its subsection list pages."""
+    hub_html = http_get(source.url)
+    hub_base = f"{urlparse(source.url).scheme}://{urlparse(source.url).netloc}"
+    # Discover which configured subsections actually exist on the hub (the
+    # menu links point at /eng/news-and-media/<subsection>/).
+    configured = set(source.subsections)
+    discovered: list[str] = []
+    for href in re.findall(r'<a[^>]+href="([^"]+)"', hub_html, re.I):
+        path = urlparse(urljoin(source.url, href)).path.rstrip("/")
+        for sub in configured:
+            if path.endswith(f"/news-and-media/{sub}"):
+                if sub not in discovered:
+                    discovered.append(sub)
+    if not discovered:
+        discovered = list(configured)
+
+    items: list[dict] = []
+    seen_urls: set[str] = set()
+    for sub in discovered:
+        kind = HKMA_SUBSECTION_KINDS.get(sub, source.kind)
+        try:
+            html = http_get(f"{hub_base}/eng/news-and-media/{sub}/")
+            for item in _parse_hkma_list(html, f"{hub_base}/eng/news-and-media/{sub}/", kind):
+                if item["url"] not in seen_urls:
+                    seen_urls.add(item["url"])
+                    items.append(item)
+        except Exception:
+            continue  # one dead subsection must not kill the hub pass
+    return items
+
+
+# ---------------------------------------------------------------------------
+# SFC JSON search API (client-rendered news site)
+# ---------------------------------------------------------------------------
+
+_SFC_SEARCH_BODY = {
+    "lang": "EN",
+    "year": "all",
+    "month": "all",
+    "pageNo": 1,
+    "pageSize": 20,
+}
+
+
+def _fetch_sfc_api(source: RegulatorySource, http_post) -> list[dict]:
+    body = dict(_SFC_SEARCH_BODY)
+    body["category"] = source.category or "all"
+    data = http_post(f"{SFC_API_BASE}/api/news/search", body)
+    items = []
+    for row in data.get("items", []):
+        ref_no = row.get("newsRefNo")
+        title = (row.get("title") or "").strip()
+        if not ref_no or not title:
+            continue
+        date = (row.get("issueDate") or "")[:10]
+        items.append(
+            {
+                "external_id": ref_no,
+                "title": title,
+                "url": f"{SFC_API_BASE}/api/news/content?refNo={ref_no}&lang=EN",
+                "issued_at": date or None,
+            }
+        )
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
 def fetch_listing(
     source: RegulatorySource,
     base_dir: str = DEFAULT_FIXTURE_DIR,
     _http_get=None,
+    _http_post=None,
 ) -> list[dict]:
-    """Return listing items. Offline/failure => parse the saved fixture."""
-    try:
-        if _http_get is not None:
-            html = _http_get(source.url)
-        else:
-            import httpx
+    """Return listing items for a source.
 
-            html = httpx.get(source.url, timeout=15).text
-        items = _parse_listing(html, source)
+    Live fetch first (strategy depends on source.mode); on any failure or an
+    empty result, falls back to a saved fixture (html modes) or an empty list
+    (API modes, where fixtures don't exist).
+    """
+    http_get = _http_get or _http_get_text
+    http_post = _http_post or _http_post_json
+    try:
+        if source.mode == "sfc_api":
+            items = _fetch_sfc_api(source, http_post)
+        elif source.mode == "hkma_html":
+            items = _fetch_hkma_hub(source, http_get)
+        else:
+            items = _fetch_html_listing(source, http_get)
         if items:
             return items
     except Exception:
         pass
-    html = _read_fixture(source.html_fixture, base_dir)
-    return _parse_listing(html, source)
+    if source.html_fixture:
+        try:
+            html = _read_fixture(source.html_fixture, base_dir)
+            if source.mode == "hkma_html":
+                base = urlparse(source.url).scheme + "://" + urlparse(source.url).netloc
+                return _parse_hkma_list(html, f"{base}/eng/news-and-media/press-releases/", source.kind)
+            return _parse_article_listing(html, source)
+        except Exception:
+            pass
+    return []
 
 
 def fetch_item_text(
@@ -85,17 +296,25 @@ def fetch_item_text(
     base_dir: str = DEFAULT_FIXTURE_DIR,
     _http_get=None,
 ) -> str:
-    """Return cleaned article text. Offline => load a <slug>.html fixture when
-    one exists, else fall back to the bare title so ingest still records the item."""
-    try:
-        if _http_get is not None:
-            html = _http_get(url)
-        else:
-            import httpx
+    """Return cleaned article text for an item URL.
 
-            html = httpx.get(url, timeout=15).text
-        text = unescape(re.sub(r"<[^>]+>", " ", html))
-        text = re.sub(r"\s+", " ", text).strip()
+    SFC API content URLs return JSON with an "html" field; everything else is
+    treated as a plain HTML page. Offline => load a <slug>.html fixture when
+    one exists, else fall back to the bare title so ingest still records the
+    item.
+    """
+    http_get = _http_get or _http_get_text
+    try:
+        raw = http_get(url)
+        text = ""
+        if "/edistributionWeb/api/" in url:
+            try:
+                data = json.loads(raw)
+                text = _clean_html(data.get("html") or "")
+            except Exception:
+                text = _clean_html(raw)
+        else:
+            text = _clean_html(_main_region_html(raw))
         if text:
             return text
     except Exception:
@@ -103,7 +322,9 @@ def fetch_item_text(
     slug = url.rstrip("/").split("/")[-1] or source.key
     path = Path(base_dir) / f"{slug}.html"
     if path.exists():
-        html = path.read_text(encoding="utf-8")
-        text = unescape(re.sub(r"<[^>]+>", " ", html))
-        return re.sub(r"\s+", " ", text).strip()
+        try:
+            html = path.read_text(encoding="utf-8")
+            return _clean_html(html)
+        except Exception:
+            pass
     return f"{source.regulator} {source.kind}: {slug}"

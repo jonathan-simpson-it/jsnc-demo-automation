@@ -43,3 +43,95 @@ def test_fetch_item_text_from_fixture():
     )
     assert "customer due diligence" in text.lower()
     assert "Anti-Money Laundering" in text
+
+
+def test_sfc_api_listing_mapping():
+    """SFC news categories map through the site's JSON search API."""
+    from src.regulatory.sources import source_by_key
+
+    source = source_by_key("sfc_enforcement_news")
+    assert source is not None and source.mode == "sfc_api"
+
+    def fake_post(url, body):
+        assert url.endswith("/api/news/search")
+        assert body["category"] == "enforcement"
+        return {
+            "items": [
+                {
+                    "newsRefNo": "26PR111",
+                    "title": "Court sentences former broker",
+                    "newsType": "PR",
+                    "issueDate": "2026-09-01T09:00:00",
+                },
+                {"newsRefNo": "26PR222", "title": "", "issueDate": "2026-09-02T09:00:00"},
+            ],
+            "total": 1,
+        }
+
+    items = fetch_listing(source, BASE, _http_post=fake_post)
+    assert len(items) == 1
+    assert items[0]["external_id"] == "26PR111"
+    assert items[0]["title"] == "Court sentences former broker"
+    assert items[0]["issued_at"] == "2026-09-01"
+    assert "/api/news/content?refNo=26PR111" in items[0]["url"]
+
+
+def test_sfc_api_offline_returns_empty():
+    """API-mode sources have no fixture: offline => empty, not a crash."""
+    from src.regulatory.sources import source_by_key
+
+    source = source_by_key("sfc_news")
+
+    def offline_post(url, body):
+        raise FetchError("network disabled in tests")
+
+    assert fetch_listing(source, BASE, _http_get=_offline, _http_post=offline_post) == []
+
+
+def test_hkma_hub_scraping():
+    """The HKMA news hub is expanded into its subsection list pages."""
+    from src.regulatory.sources import source_by_key
+
+    source = source_by_key("hkma_news")
+    assert source is not None and source.mode == "hkma_html"
+
+    hub_html = (
+        '<a href="/eng/news-and-media/">hub</a>'
+        '<a href="/eng/news-and-media/press-releases/">Press Releases</a>'
+        '<a href="/eng/news-and-media/speeches/">Speeches</a>'
+    )
+    list_html = (
+        '<div class="press-release-result">'
+        "<ul><li>03 Sep 2026</li><li>"
+        '<a href="/eng/news-and-media/press-releases/2026/09/20260903-3/" '
+        'title="Scam alert related to banks">Scam alert related to banks</a>'
+        "</li></ul>"
+    )
+    calls = {"n": 0}
+
+    def fake_get(url):
+        calls["n"] += 1
+        if url.endswith("/eng/news-and-media/"):
+            return hub_html
+        return list_html
+
+    items = fetch_listing(source, BASE, _http_get=fake_get)
+    assert calls["n"] == 3  # hub + press-releases + speeches
+    assert items[0]["title"] == "Scam alert related to banks"
+    assert items[0]["external_id"] == "20260903-3"
+    assert items[0]["issued_at"] == "03 Sep 2026"
+    assert items[0]["kind"] == "press release"
+    assert items[0]["url"].startswith("https://www.hkma.gov.hk")
+
+
+def test_sfc_api_item_text_parses_json_html():
+    from src.regulatory.sources import source_by_key
+
+    source = source_by_key("sfc_news")
+    url = "https://apps.sfc.hk/edistributionWeb/api/news/content?refNo=26PR1&lang=EN"
+
+    def fake_get(u):
+        return '{"newsRefNo":"26PR1","html":"<p>Licensing <b>action</b> taken.</p>"}'
+
+    text = fetch_item_text(url, source, BASE, _http_get=fake_get)
+    assert "Licensing action taken." == text
