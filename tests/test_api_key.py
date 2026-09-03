@@ -182,3 +182,11 @@ def test_request_key_reaches_router_streaming(monkeypatch):
     )
     assert res.status_code == 200
     assert fake.seen_keys == ["user-key-abc"]
+
+
+def test_health_reports_server_key_state(monkeypatch):
+    monkeypatch.setattr(settings, "deepseek_api_key", "")
+    client = TestClient(app)
+    assert client.get("/health").json()["server_key_configured"] is False
+    monkeypatch.setattr(settings, "deepseek_api_key", "env-key")
+    assert client.get("/health").json()["server_key_configured"] is True

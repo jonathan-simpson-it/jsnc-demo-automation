@@ -71,7 +71,11 @@ app.include_router(regulatory_router, prefix="/api/regulatory", tags=["regulator
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "version": "0.1.0"}
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "server_key_configured": bool(settings.deepseek_api_key),
+    }
 
 
 @app.get("/api/eval/results")
