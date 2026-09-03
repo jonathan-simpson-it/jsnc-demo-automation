@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateSummary } from "@/lib/api";
 import type { SummaryResponse } from "@/lib/types";
+import StatCard from "@/components/StatCard";
+import { formatPercent, formatCount } from "@/lib/utils";
 
 const DEMO_WEEK: SummaryResponse = {
   period: "2026-08-26/2026-09-02",
@@ -178,7 +180,9 @@ Average confidence: **82%**
 };
 
 export default function SummaryPage() {
-  const [data, setData] = useState<SummaryResponse | null>(null);
+  // Seed with demo data so the page is never empty; load() below replaces it
+  // with live data whenever the audit trail has activity.
+  const [data, setData] = useState<SummaryResponse | null>(DEMO_WEEK);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"week" | "month">("week");
@@ -201,12 +205,20 @@ export default function SummaryPage() {
     }
   }
 
+  // Load the default period on first visit so the page is never empty.
+  useEffect(() => {
+    load("week");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <section className="section">
       <div className="container">
         <div className="section-intro">
           <span className="section-eyebrow">Summary</span>
-          <h2>Email reports.</h2>
+          <h1 style={{ fontSize: "clamp(1.4rem, 3.8vw, 2rem)", fontFamily: "var(--font-display)", fontWeight: 400, lineHeight: 1.15, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
+            Email reports.
+          </h1>
           <p>
             Generate email-ready reports from the audit trail. Covers query
             volume, agent usage, and confidence scores.
@@ -267,24 +279,16 @@ export default function SummaryPage() {
                 gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
               }}
             >
-              {[
-                { v: data.total_queries, l: "Total Queries" },
-                {
-                  v: `${Math.round(data.avg_confidence * 100)}%`,
-                  l: "Avg Confidence",
-                },
-                { v: data.user_activity.length, l: "Active Users" },
-                { v: data.agent_breakdown.length, l: "Agent Types" },
-              ].map((s) => (
-                <div key={s.l} className="panel-card" style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 700, color: "var(--color-accent)" }}>
-                    {s.v}
-                  </div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--color-muted)", marginTop: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                    {s.l}
-                  </div>
-                </div>
-              ))}
+              <StatCard value={formatCount(data.total_queries)} label="Total Queries" />
+              <StatCard
+                value={`${formatPercent((data.avg_confidence ?? 0) * 100)}%`}
+                label="Avg Confidence"
+              />
+              <StatCard value={formatCount(data.user_activity.length)} label="Active Users" />
+              <StatCard
+                value={formatCount(data.agent_breakdown.length)}
+                label="Agent Types"
+              />
             </div>
 
             {/* Agent Usage */}
@@ -312,8 +316,13 @@ export default function SummaryPage() {
                         {a.count} queries
                       </span>
                       <span
-                        className="chip"
-                        style={{ minWidth: "3rem", justifyContent: "center" }}
+                        style={{
+                          minWidth: "3rem",
+                          textAlign: "right",
+                          flexShrink: 0,
+                          fontVariantNumeric: "tabular-nums",
+                          color: "var(--color-muted)",
+                        }}
                       >
                         {a.pct}%
                       </span>
@@ -350,7 +359,16 @@ export default function SummaryPage() {
                         <span style={{ fontSize: "0.88rem", fontWeight: 500, flex: 1 }}>
                           {i + 1}. {q.query}
                         </span>
-                        <span className="chip">{q.agent}</span>
+                        <span
+                          style={{
+                            fontSize: "0.74rem",
+                            color: "var(--color-muted)",
+                            flexShrink: 0,
+                            marginTop: "0.15rem",
+                          }}
+                        >
+                          {q.agent}
+                        </span>
                       </div>
                       <div
                         style={{

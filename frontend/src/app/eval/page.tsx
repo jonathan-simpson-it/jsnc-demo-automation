@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { fetchEvalResults } from "@/lib/api";
 import type { EvalResults, EvalQuestion } from "@/lib/types";
+import StatCard from "@/components/StatCard";
+import { formatPercent, formatCount } from "@/lib/utils";
 
 const DOC_NAMES: Record<string, string> = {
   cv: "CV (Jonathan Devano)",
@@ -14,14 +16,35 @@ const DOC_NAMES: Record<string, string> = {
 
 export default function EvalPage() {
   const [data, setData] = useState<EvalResults | null>(null);
+  const [failed, setFailed] = useState(false);
   const [docFilter, setDocFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setFailed(false);
+    setData(null);
     fetchEvalResults()
       .then(setData)
-      .catch(() => {});
+      .catch(() => setFailed(true));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (failed)
+    return (
+      <section className="section">
+        <div className="container" style={{ textAlign: "center", padding: "3rem 0" }}>
+          <p style={{ color: "var(--color-muted)", marginBottom: "1.25rem" }}>
+            Couldn't load eval results. Is the backend running?
+          </p>
+          <button type="button" onClick={load} className="button button--solid">
+            Retry
+          </button>
+        </div>
+      </section>
+    );
 
   if (!data || data.error)
     return (
@@ -53,7 +76,9 @@ export default function EvalPage() {
       <div className="container">
         <div className="section-intro">
           <span className="section-eyebrow">Evaluation</span>
-          <h2>Accuracy dashboard.</h2>
+          <h1 style={{ fontSize: "clamp(1.4rem, 3.8vw, 2rem)", fontFamily: "var(--font-display)", fontWeight: 400, lineHeight: 1.15, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
+            Accuracy dashboard.
+          </h1>
           <p>
             Performance metrics across {meta.questions || questions.length} test
             questions, updated{" "}
@@ -72,24 +97,19 @@ export default function EvalPage() {
             marginBottom: "2.5rem",
           }}
         >
-          {[
-            { v: `${meta.pct}%`, l: "Accuracy" },
-            { v: String(meta.questions || questions.length), l: "Questions" },
-            {
-              v: `${meta.avg_latency_ms || meta.avg_ms_per_question || 0}ms`,
-              l: "Avg Latency",
-            },
-            { v: meta.llm_node_calls ? String(meta.llm_node_calls) : "--", l: "LLM Calls" },
-          ].map((s) => (
-            <div key={s.l} className="panel-card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 700, color: "var(--color-accent)" }}>
-                {s.v}
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "var(--color-muted)", marginTop: "0.25rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {s.l}
-              </div>
-            </div>
-          ))}
+          <StatCard value={`${formatPercent(meta.pct)}%`} label="Accuracy" />
+          <StatCard
+            value={formatCount(meta.questions || questions.length)}
+            label="Questions"
+          />
+          <StatCard
+            value={`${formatCount(meta.avg_latency_ms || meta.avg_ms_per_question || 0)}ms`}
+            label="Avg Latency"
+          />
+          <StatCard
+            value={meta.llm_node_calls ? formatCount(meta.llm_node_calls) : "--"}
+            label="LLM Calls"
+          />
         </div>
 
         {/* Accuracy Bar */}
@@ -107,7 +127,7 @@ export default function EvalPage() {
               height: "100%",
               background: "var(--color-accent)",
               borderRadius: "999px",
-              width: `${meta.pct}%`,
+              width: `${Math.min(100, Math.max(0, Number(meta.pct) || 0))}%`,
               transition: "width 600ms ease",
             }}
           />
@@ -131,15 +151,58 @@ export default function EvalPage() {
             .map(([k, qs]) => {
               const p = qs.filter((q) => q.pass ?? q.passed).length;
               const pct = qs.length ? Math.round((100 * p) / qs.length) : 0;
+              const name = DOC_NAMES[k] || k;
               return (
-                <div key={k} className="panel-card" style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-accent)" }}>
+                <div
+                  key={k}
+                  className="panel-card"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    textAlign: "center",
+                    minHeight: "7.5rem",
+                    padding: "1.25rem 1rem",
+                  }}
+                >
+                  <div
+                    title={name}
+                    style={{
+                      maxWidth: "100%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      letterSpacing: "0.09em",
+                      textTransform: "uppercase",
+                      color: "var(--color-muted)",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    {name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "clamp(1.5rem, 3vw, 1.9rem)",
+                      fontWeight: 700,
+                      lineHeight: 1.15,
+                      letterSpacing: "-0.02em",
+                      color: "var(--color-ink)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
                     {pct}%
                   </div>
-                  <div style={{ fontSize: "0.82rem", color: "var(--color-muted)", marginTop: "0.25rem" }}>
-                    {DOC_NAMES[k] || k}
-                  </div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
+                  <div
+                    style={{
+                      marginTop: "0.25rem",
+                      fontSize: "0.72rem",
+                      color: "var(--color-muted)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
                     {p}/{qs.length}
                   </div>
                 </div>
@@ -161,6 +224,7 @@ export default function EvalPage() {
           <select
             value={docFilter}
             onChange={(e) => setDocFilter(e.target.value)}
+            aria-label="Filter by document"
             className="select"
           >
             <option value="All">All documents</option>
@@ -173,6 +237,7 @@ export default function EvalPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by status"
             className="select"
           >
             <option value="All">All statuses</option>
@@ -205,8 +270,10 @@ export default function EvalPage() {
                   <span
                     className="chip"
                     style={{
-                      background: ok ? "#dcfce7" : "#fee2e2",
-                      color: ok ? "#166534" : "#991b1b",
+                      background: ok
+                        ? "var(--color-accent-soft)"
+                        : "transparent",
+                      color: ok ? "var(--color-accent)" : "var(--color-error)",
                       flexShrink: 0,
                     }}
                   >
@@ -230,6 +297,18 @@ export default function EvalPage() {
             );
           })}
         </div>
+        {filtered.length === 0 && (
+          <p
+            style={{
+              color: "var(--color-muted)",
+              textAlign: "center",
+              padding: "3rem 0",
+              fontSize: "0.88rem",
+            }}
+          >
+            No questions match the selected filters.
+          </p>
+        )}
       </div>
     </section>
   );

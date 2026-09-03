@@ -20,18 +20,41 @@ const AGENTS = [
 
 export default function ConfigPage() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
+    setFailed(false);
     fetchHealth()
       .then(setHealth)
-      .catch(() => {});
-  }, []);
+      .catch(() => setFailed(true));
+  }, [tick]);
+
+  if (failed)
+    return (
+      <section className="section">
+        <div className="container" style={{ textAlign: "center", padding: "3rem 0" }}>
+          <p style={{ color: "var(--color-muted)", marginBottom: "1.25rem" }}>
+            Can't reach the backend for system status. Is the API server running?
+          </p>
+          <button
+            type="button"
+            onClick={() => setTick((t) => t + 1)}
+            className="button button--solid"
+          >
+            Retry
+          </button>
+        </div>
+      </section>
+    );
 
   return (
     <section className="section">
       <div className="container">
         <div className="section-intro">
           <span className="section-eyebrow">Configuration</span>
-          <h2>System overview.</h2>
+          <h1 style={{ fontSize: "clamp(1.4rem, 3.8vw, 2rem)", fontFamily: "var(--font-display)", fontWeight: 400, lineHeight: 1.15, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
+            System overview.
+          </h1>
           <p>
             Current system status, active features, and registered agent types.
           </p>
@@ -51,7 +74,7 @@ export default function ConfigPage() {
                 className="w-2 h-2 rounded-full"
                 style={{
                   background:
-                    health?.status === "healthy" ? "#22c55e" : "var(--color-muted)",
+                    health?.status === "healthy" ? "var(--color-accent)" : "var(--color-muted)",
                 }}
               />
               <span style={{ fontSize: "0.95rem", fontWeight: 500 }}>
