@@ -53,3 +53,35 @@ def test_unknown_template_falls_back_to_digest():
     out = compose_draft(_summary(), template_key="nope")
     assert out["generated_by"] == "template"
     assert out["body"]
+
+
+class _FakeLLM:
+    def __init__(self, reply: str):
+        self.reply = reply
+
+    def invoke(self, messages):
+        class R:
+            content = self.reply
+        return R()
+
+
+def test_ai_refines_when_llm_provided():
+    reply = '{"subject": "AI subject", "body": "## AI body\\n\\nRefined text."}'
+    out = compose_draft(_summary(), llm=_FakeLLM(reply))
+    assert out["generated_by"] == "ai"
+    assert out["subject"] == "AI subject"
+    assert "Refined text." in out["body"]
+
+
+def test_bad_llm_json_falls_back_to_template():
+    out = compose_draft(_summary(), llm=_FakeLLM("not json at all"))
+    assert out["generated_by"] == "template"
+    assert out["body"]
+
+
+def test_llm_exception_falls_back_to_template():
+    class Boom:
+        def invoke(self, messages):
+            raise RuntimeError("key missing")
+    out = compose_draft(_summary(), llm=Boom())
+    assert out["generated_by"] == "template"

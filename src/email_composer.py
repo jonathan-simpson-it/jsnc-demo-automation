@@ -7,6 +7,9 @@ to rewrite/expand the draft and falls back to the template on any error.
 
 from __future__ import annotations
 
+import json
+import re
+
 TEMPLATE_KEYS = ("digest", "monthly", "client", "alert")
 TONES = ("professional", "friendly", "formal")
 
@@ -68,6 +71,46 @@ def _build_body(summary: dict, template_key: str, tone: str, instructions: str) 
     return "\n".join(lines)
 
 
+_COMPOSE_PROMPT = """You write a short internal email draft for a PE platform.
+Current draft (markdown-lite, keep it):
+---
+{current}
+---
+Rules:
+- Output ONLY JSON: {{"subject": "...", "body": "..."}}
+- body uses markdown-lite: "## " section titles, "**bold**", "- " bullets, no tables.
+- Keep it under 2000 characters. Preserve the metrics numbers exactly.
+{extra}"""
+
+
+def _default_llm():
+    from src.agents.graph import _make_llm
+    return _make_llm(temperature=0.4)
+
+
+def _compose_with_llm(summary, template_key, tone, instructions, llm) -> dict | None:
+    current = _build_body(summary, template_key, tone, instructions)
+    extra = ""
+    if instructions:
+        extra = f"- Incorporate this focus: {instructions}\n"
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    resp = llm.invoke([
+        SystemMessage(content="You format valid JSON only."),
+        HumanMessage(content=_COMPOSE_PROMPT.format(current=current, extra=extra)),
+    ])
+    text = str(getattr(resp, "content", resp))
+    m = re.search(r"\{.*\}", text, re.S)
+    if not m:
+        return None
+    parsed = json.loads(m.group(0))
+    subject = str(parsed.get("subject", "")).strip()
+    body = str(parsed.get("body", "")).strip()
+    if not subject or not body:
+        return None
+    return {"subject": subject, "body": body, "generated_by": "ai"}
+
+
 def compose_draft(
     summary: dict,
     template_key: str = "digest",
@@ -76,6 +119,18 @@ def compose_draft(
     llm=None,
 ) -> dict:
     """Build an email draft. Returns {'subject','body','generated_by'}."""
+    if llm is None:
+        try:
+            llm = _default_llm()
+        except Exception:
+            llm = None
+    if llm is not None:
+        try:
+            refined = _compose_with_llm(summary, template_key, tone, instructions, llm)
+            if refined:
+                return refined
+        except Exception:
+            pass  # any AI failure -> deterministic template
     body = _build_body(summary, template_key, tone, instructions)
     return {
         "subject": _build_subject(summary, template_key),
