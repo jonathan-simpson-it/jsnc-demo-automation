@@ -310,9 +310,10 @@ def fetch_listing(
 ) -> list[dict]:
     """Return listing items for a source.
 
-    Live fetch first (strategy depends on source.mode); on any failure or an
-    empty result, falls back to a saved fixture (html modes) or an empty list
-    (API modes, where fixtures don't exist).
+    Live fetch first (strategy depends on source.mode). Fixtures are used only
+    when the live fetch itself fails (network/parse error) — a live page that
+    legitimately returns no items must NOT be replaced with fixture data, or
+    fictional demo rows would leak into the real feed.
     """
     http_get = _http_get or _http_get_text
     http_post = _http_post or _http_post_json
@@ -323,8 +324,7 @@ def fetch_listing(
             items = _sort_recent(_fetch_hkma_hub(source, http_get))
         else:
             items = _sort_recent(_fetch_html_listing(source, http_get))
-        if items:
-            return items
+        return items
     except Exception:
         pass
     if source.html_fixture:

@@ -5,7 +5,7 @@ Sources cover the news hubs the Radar page cares about:
 - SFC "News and announcements" family (https://www.sfc.hk/en/News-and-announcements):
   the site renders its lists client-side, so these are fetched through the
   same JSON search API the site uses (mode="sfc_api", one source per category:
-  all / corporate / enforcement / other).
+  all / corporate / enforcement).
 - SFC circulars page: server-rendered HTML (mode="html", fixture-backed).
 - HKMA news hub (https://www.hkma.gov.hk/eng/news-and-media/): server-rendered
   HTML; the hub's subsections (press releases, speeches) are scraped as
@@ -29,6 +29,10 @@ class RegulatorySource:
     # HKMA hub subsection path fragments to scrape (mode="hkma_html").
     subsections: tuple[str, ...] = ()
     html_fixture: str = ""
+    # Legacy/fixture-backed sources: still usable by offline tests, but the
+    # live poller must never run them (their pages are JS shells or gone, and
+    # fixture fallback would inject fictional demo rows into the real feed).
+    fixture_only: bool = False
 
 
 SOURCES = [
@@ -57,15 +61,8 @@ SOURCES = [
         mode="sfc_api",
         category="enforcement",
     ),
-    RegulatorySource(
-        key="sfc_other_news",
-        regulator="SFC",
-        kind="other news",
-        url="https://www.sfc.hk/en/News-and-announcements/News/Other-news",
-        mode="sfc_api",
-        category="other",
-    ),
-    # --- SFC: circulars (server-rendered page + fixture) ---
+    # --- SFC: circulars (legacy server-rendered page; now a JS shell, so this
+    # source is fixture-only and used by offline tests, never polled live) ---
     RegulatorySource(
         key="sfc_circulars",
         regulator="SFC",
@@ -73,6 +70,7 @@ SOURCES = [
         url="https://www.sfc.hk/en/Regulatory-functions/Intermediaries/Circulars-to-licensed-corporations",
         mode="html",
         html_fixture="sfc_circulars_list.html",
+        fixture_only=True,
     ),
     # --- HKMA: news hub (server-rendered HTML lists) ---
     RegulatorySource(
@@ -81,10 +79,11 @@ SOURCES = [
         kind="press release",
         url="https://www.hkma.gov.hk/eng/news-and-media/",
         mode="hkma_html",
-        subsections=("press-releases", "speeches"),
+        subsections=("press-releases", "speeches", "insight"),
         html_fixture="hkma_press_list.html",
     ),
-    # --- HKMA: legacy press-release page (kept for fixture/offline support) ---
+    # --- HKMA: legacy press-release page (fixture-only, used by offline
+    # tests; the real HKMA news comes from the hkma_news hub source) ---
     RegulatorySource(
         key="hkma_circulars",
         regulator="HKMA",
@@ -92,6 +91,7 @@ SOURCES = [
         url="https://www.hkma.gov.hk/eng/key-information/press-releases/",
         mode="html",
         html_fixture="hkma_press_list.html",
+        fixture_only=True,
     ),
 ]
 
@@ -99,6 +99,7 @@ SOURCES = [
 HKMA_SUBSECTION_KINDS = {
     "press-releases": "press release",
     "speeches": "speech",
+    "insight": "insight",
 }
 
 

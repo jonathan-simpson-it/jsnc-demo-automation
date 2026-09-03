@@ -27,21 +27,22 @@ class _NoopStore:
 def _fixture_items():
     return [
         {
-            "source_key": "sfc_circulars",
+            "source_key": "sfc_news",
             "items": [{
-                "external_id": "licensing-of-virtual-asset-trading-platforms",
+                "external_id": "26PR999",
                 "title": "Licensing of Virtual Asset Trading Platforms",
-                "url": "https://www.sfc.hk/en/circulars/licensing-vasp-2026",
-                "issued_at": "16 Oct 2026",
+                "url": "https://apps.sfc.hk/edistributionWeb/api/news/content?refNo=26PR999&lang=EN",
+                "issued_at": "2026-10-16",
             }],
         },
         {
-            "source_key": "hkma_circulars",
+            "source_key": "hkma_news",
             "items": [{
-                "external_id": "virtual-banking-guidance-2026",
+                "external_id": "20261020-1",
                 "title": "Virtual banking risk management",
-                "url": "https://www.hkma.gov.hk/eng/press/virtual-banks-2026",
-                "issued_at": "20 Oct 2026",
+                "url": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2026/10/20261020-1/",
+                "issued_at": "2026-10-20",
+                "kind": "press release",
             }],
         },
     ]
@@ -72,7 +73,7 @@ def test_poll_cycle_ingests_and_is_idempotent(isolated_db, monkeypatch):
 
 def test_per_item_failure_marks_error(isolated_db, monkeypatch):
     def fake_listing(source):
-        if source.key == "sfc_circulars":
+        if source.key == "sfc_news":
             return _fixture_items()[0]["items"]
         return []
 

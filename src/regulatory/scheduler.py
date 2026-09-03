@@ -64,6 +64,8 @@ def poll_cycle(store=None) -> dict:
             store = None  # ingest metadata/feed only; vectors optional offline
     try:
         for source in SOURCES:
+            if source.fixture_only:
+                continue  # never inject fixture data into the live feed
             items = client.fetch_listing(source)
             for item in items:
                 if db.get_regulatory_item(source.key, item["external_id"]):
