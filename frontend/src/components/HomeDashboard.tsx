@@ -89,17 +89,10 @@ function agentLabel(agent: string): string {
 
 function SourceBadge({ source }: { source: string }) {
   const key = source.toLowerCase();
-  const cls =
-    key === "hkma"
-      ? "bg-neutral-700 text-white"
-      : key === "email" || key === "mail"
-        ? "bg-neutral-200 text-neutral-700 border border-neutral-300"
-        : "bg-neutral-900 text-white";
+  const label = key === "email" || key === "mail" ? "Email" : key;
   return (
-    <span
-      className={`inline-flex h-5 w-12 shrink-0 items-center justify-center rounded-md text-[10px] font-bold uppercase tracking-wider ${cls}`}
-    >
-      {key === "email" || key === "mail" ? "Email" : key}
+    <span className="inline-flex h-5 shrink-0 items-center rounded-md border border-neutral-200 bg-white px-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+      {label}
     </span>
   );
 }
@@ -349,11 +342,11 @@ export default function HomeDashboard() {
                     aria-label={label}
                     className={`relative flex aspect-square items-center justify-center rounded-lg text-xs transition ${
                       isSel
-                        ? "bg-neutral-900 font-semibold text-white"
+                        ? "bg-neutral-200 font-semibold text-neutral-900 ring-1 ring-inset ring-neutral-700/60"
                         : isToday
-                          ? "bg-neutral-200/70 font-semibold text-neutral-900 hover:bg-neutral-300/70"
+                          ? "bg-white font-medium text-neutral-900 ring-1 ring-inset ring-neutral-300 hover:bg-neutral-100"
                           : has
-                            ? "bg-neutral-100 font-medium text-neutral-900 hover:bg-neutral-200"
+                            ? "bg-neutral-100 font-medium text-neutral-700 hover:bg-neutral-200/80"
                             : cell.inMonth
                               ? "text-neutral-400"
                               : "text-transparent"
@@ -364,12 +357,12 @@ export default function HomeDashboard() {
                       <span className="absolute bottom-1 flex h-1 items-center gap-0.5">
                         {cell.radar > 0 && (
                           <span
-                            className={`h-1 w-1 rounded-full ${isSel ? "bg-white" : "bg-neutral-900"}`}
+                            className={`h-1 w-1 rounded-full bg-neutral-600`}
                           />
                         )}
                         {cell.mail > 0 && (
                           <span
-                            className={`h-1 w-1 rounded-full ${isSel ? "bg-emerald-300" : "bg-emerald-500"}`}
+                            className={`h-1 w-1 rounded-full bg-neutral-400`}
                           />
                         )}
                       </span>
@@ -380,11 +373,11 @@ export default function HomeDashboard() {
             </div>
             <div className="mt-2 flex items-center justify-center gap-4 border-t border-neutral-100 pt-2.5">
               <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-neutral-900" aria-hidden="true" />
+                <span className="h-1.5 w-1.5 rounded-full bg-neutral-600" aria-hidden="true" />
                 Radar circulars
               </span>
               <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" aria-hidden="true" />
                 Mail
               </span>
             </div>
@@ -529,7 +522,7 @@ export default function HomeDashboard() {
                     .map((a, i) => (
                       <span
                         key={`q-${i}`}
-                        className="w-1.5 rounded-sm bg-neutral-200 first:bg-neutral-900"
+                        className="w-1.5 rounded-sm bg-neutral-300 first:bg-neutral-600"
                         style={{
                           height: `${Math.max(
                             12,
@@ -557,7 +550,7 @@ export default function HomeDashboard() {
                   aria-label={`Average confidence ${Math.round(report.avg_confidence * 100)} percent`}
                 >
                   <div
-                    className="h-full rounded-full bg-emerald-500"
+                    className="h-full rounded-full bg-neutral-700"
                     style={{ width: `${Math.round(report.avg_confidence * 100)}%` }}
                   />
                 </div>
@@ -577,7 +570,7 @@ export default function HomeDashboard() {
                   aria-label={`Top agent handles ${Math.round((agentCount / report.total_queries) * 100)} percent of queries`}
                 >
                   <div
-                    className="h-full rounded-full bg-neutral-900"
+                    className="h-full rounded-full bg-neutral-600"
                     style={{
                       width: `${Math.round((agentCount / report.total_queries) * 100)}%`,
                     }}

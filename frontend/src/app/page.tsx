@@ -103,7 +103,7 @@ export default function Home() {
                 href="https://jonathansimpson.co/contact/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-neutral-900 px-4 text-sm font-semibold text-white transition hover:bg-neutral-700"
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-neutral-800 px-4 text-sm font-semibold text-white transition hover:bg-neutral-700"
               >
                 Start a project
               </a>

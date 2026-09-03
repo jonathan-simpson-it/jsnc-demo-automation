@@ -113,17 +113,17 @@ export default function RadarPage() {
 
   const sfcError = state?.last_status === "error";
   const dotColor = busy
-    ? "bg-amber-400"
+    ? "bg-neutral-400"
     : sfcError
       ? "bg-red-500"
-      : "bg-emerald-500";
+      : "bg-emerald-600";
 
   const statusPill = (status?: string) => {
     if (status === "ingested")
-      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      return "bg-neutral-100 text-neutral-700 border-neutral-200/80";
     if (status === "error")
-      return "bg-red-50 text-red-600 border-red-200";
-    return "bg-neutral-100 text-neutral-500 border-neutral-200";
+      return "bg-white text-red-600 border-red-200/70";
+    return "bg-white text-neutral-500 border-neutral-200/80";
   };
 
   function ColumnHeader({
@@ -191,7 +191,7 @@ export default function RadarPage() {
             {item.chunks} chunk{item.chunks === 1 ? "" : "s"}
           </span>
           {!item.summary && (
-            <span className="rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded-md border border-neutral-200/80 bg-white px-1.5 py-0.5 text-[11px] font-medium text-neutral-500">
               Pending impact
             </span>
           )}

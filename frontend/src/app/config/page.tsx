@@ -94,8 +94,8 @@ export default function ConfigPage() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span
-                className={`h-2.5 w-2.5 rounded-full ${
-                  operational ? "bg-emerald-500 animate-pulse" : "bg-red-500"
+                className={`h-2 w-2 rounded-full ${
+                  operational ? "bg-emerald-600" : "bg-red-500"
                 }`}
                 aria-hidden="true"
               />
@@ -117,7 +117,7 @@ export default function ConfigPage() {
               <span className="text-lg font-semibold text-neutral-900">
                 {health?.version || "n/a"}
               </span>
-              <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+              <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-[11px] text-neutral-700 ring-1 ring-inset ring-neutral-200/80">
                 Latest
               </span>
             </div>
@@ -147,11 +147,11 @@ export default function ConfigPage() {
               <span className="text-lg font-semibold text-neutral-900">
                 {AGENTS.length}/{AGENTS.length}
               </span>
-              <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <span className="rounded-md border border-neutral-200/80 bg-neutral-100 px-2 py-0.5 font-mono text-[11px] text-neutral-700">
                 Registered
               </span>
             </div>
-            <div className="mt-1 text-xs text-neutral-400">routing ready</div>
+            <div className="mt-1 text-xs text-neutral-500">Routing ready</div>
           </div>
         </div>
 
@@ -177,7 +177,20 @@ export default function ConfigPage() {
                     </div>
                     <div className="text-xs text-neutral-400">{f.description}</div>
                   </div>
-                  <span className="shrink-0 rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-600">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
                     Active
                   </span>
                 </li>
@@ -200,14 +213,27 @@ export default function ConfigPage() {
                   className="flex items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-neutral-900">
+                    <div className="text-sm font-semibold text-neutral-800">
                       {a.label}
                     </div>
                     <code className="font-mono text-xs text-neutral-400">
                       {a.type}
                     </code>
                   </div>
-                  <span className="shrink-0 rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-600">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
                     Active
                   </span>
                 </li>
