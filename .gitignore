@@ -59,3 +59,7 @@ Thumbs.db
 .freebuff/
 .playwright-mcp/
 frontend/tsconfig.tsbuildinfo
+
+# Dev stamps
+.run-stamps/
+.deepseekapiforinput-in-frontend
