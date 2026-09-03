@@ -11,8 +11,9 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
     return (
       <div style={{ width: "min(22rem, calc(100vw - 3rem))" }}>
         <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
-          Your key is stored <strong>only in this browser</strong> (localStorage) and is sent
-          with your requests — never saved on our servers.
+          Your DeepSeek API key is stored <strong>only in this browser</strong>{" "}
+          (localStorage) and is sent with your requests — never saved on our
+          servers.
         </p>
         <p style={{ fontSize: "0.82rem" }}>
           Active key: <code>{key.slice(0, 4)}••••••••{key.slice(-4)}</code>
@@ -25,7 +26,7 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
             onDone?.();
           }}
         >
-          Remove key
+          Remove DeepSeek key
         </button>
         <button
           type="button"
