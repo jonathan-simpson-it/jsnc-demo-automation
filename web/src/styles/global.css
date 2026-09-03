@@ -153,3 +153,9 @@ input, textarea, select { font-family: var(--font-body); font-size: var(--text-b
 input:focus, textarea:focus, select:focus { outline: none; border-color: var(--color-accent); }
 textarea { resize: vertical; min-height: 120px; }
 label { display: block; font-size: var(--text-small); font-weight: 500; color: var(--color-ink); margin-bottom: 0.5rem; }
+
+/* Official regulator logo marks (identify official sources; tinted to the
+   sage accent so third-party colour never fights the JS&C palette) */
+.prose figure img[src*="/pictures/"] {
+  filter: brightness(0) invert(1) sepia(1) saturate(3.5) hue-rotate(82deg) brightness(0.4);
+}

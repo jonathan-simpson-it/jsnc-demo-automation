@@ -26,7 +26,13 @@ export default function RegulatorMark({
         alt={meta!.name}
         height={size}
         width={size * 3}
-        style={{ height: size, width: "auto", maxWidth: "9rem" }}
+        style={{
+          height: size,
+          width: "auto",
+          maxWidth: "9rem",
+          filter:
+            "brightness(0) invert(1) sepia(1) saturate(3.5) hue-rotate(82deg) brightness(0.4)",
+        }}
         onError={() => setFailed(true)}
       />
     </span>
