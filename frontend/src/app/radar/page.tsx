@@ -6,6 +6,7 @@ import {
   pollRegulatory,
 } from "@/lib/api";
 import type { RegulatoryFeedItem, RegulatoryState } from "@/lib/types";
+import RegulatorMark from "@/components/RegulatorMark";
 
 const REGULATOR_ORDER: Record<string, number> = { SFC: 0, HKMA: 1 };
 
@@ -152,8 +153,35 @@ export default function RadarPage() {
             Regulatory radar.
           </h1>
           <p>
-            Daily SFC and HKMA circulars, ingested into the knowledge base with
-            recency-weighted retrieval.
+            Live SFC and HKMA circulars, ingested into the knowledge base with
+            recency-weighted retrieval — grounded in today's guidance.
+          </p>
+          <div
+            className="flex flex-wrap items-center gap-2"
+            style={{ marginTop: "1rem" }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "var(--color-muted)",
+              }}
+            >
+              Sources:
+            </span>
+            <RegulatorMark code="SFC" withName />
+            <RegulatorMark code="HKMA" withName />
+          </div>
+          <p
+            style={{
+              fontSize: "0.72rem",
+              marginTop: "0.5rem",
+              color: "var(--color-muted)",
+            }}
+          >
+            Logos belong to their owners and identify official sources.
           </p>
         </div>
 
@@ -234,36 +262,64 @@ export default function RadarPage() {
         {!loading && !!items?.length && (
           <div className="space-y-2">
             {segments.map((segment) => (
-              <div key={segment.regulator + (segment.kind || "")}>
-                <div style={{ margin: segment.head ? "1.5rem 0 0.4rem" : "1.4rem 0 0.4rem" }}>
-                  {segment.head && (
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        fontWeight: 600,
-                        letterSpacing: "0.09em",
-                        textTransform: "uppercase",
-                        color: "var(--color-muted)",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
-                      {segment.regulator}
+                <div key={segment.regulator + (segment.kind || "")}>
+                  {segment.head ? (
+                    <div style={{ margin: "1.5rem 0 0.4rem" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <RegulatorMark code={segment.regulator} size={20} />
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.09em",
+                            textTransform: "uppercase",
+                            color: "var(--color-muted)",
+                          }}
+                        >
+                          {segment.kind
+                            ? segment.regulator
+                            : `${segment.regulator} — ${segment.items.length} item${segment.items.length === 1 ? "" : "s"}`}
+                        </span>
+                      </div>
+                      {segment.kind && (
+                        <div
+                          style={{
+                            margin: "0.25rem 0 0",
+                            fontSize: "0.74rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.09em",
+                            textTransform: "uppercase",
+                            color: "var(--color-accent)",
+                          }}
+                        >
+                          {segment.label} — {segment.items.length} item
+                          {segment.items.length === 1 ? "" : "s"}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ margin: "1.4rem 0 0.4rem" }}>
+                      <div
+                        style={{
+                          fontSize: "0.74rem",
+                          fontWeight: 600,
+                          letterSpacing: "0.09em",
+                          textTransform: "uppercase",
+                          color: "var(--color-accent)",
+                        }}
+                      >
+                        {segment.label} — {segment.items.length} item
+                        {segment.items.length === 1 ? "" : "s"}
+                      </div>
                     </div>
                   )}
-                  <div
-                    style={{
-                      fontSize: segment.kind ? "0.74rem" : "0.7rem",
-                      fontWeight: 600,
-                      letterSpacing: "0.09em",
-                      textTransform: "uppercase",
-                      color: segment.kind ? "var(--color-accent)" : "var(--color-muted)",
-                    }}
-                  >
-                    {segment.label} — {segment.items.length} item
-                    {segment.items.length === 1 ? "" : "s"}
-                  </div>
-                </div>
-                <div className="space-y-3">
+                  <div className="space-y-3">
                   {segment.items.map((item) => (
                     <div key={item.id} className="panel-card">
                       <h4 style={{ margin: "0 0 0.6rem" }}>
