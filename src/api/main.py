@@ -1,5 +1,6 @@
 """FastAPI application for PE AI Engineering API."""
 
+import asyncio
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,10 @@ from src.api.routes.summary import router as summary_router
 from src.api.routes.clients import router as clients_router
 from src.api.routes.projects import router as projects_router
 from src.api.routes.onedrive import router as onedrive_router
+from src.api.routes.conversations import router as conversations_router
+from src.api.routes.review import router as review_router
+from src.api.routes.telemetry import router as telemetry_router
+from src.api.routes.regulatory import router as regulatory_router
 from src.vector_store.chroma import VectorStore
 
 
@@ -23,7 +28,14 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     vector_store = VectorStore()
     set_vector_store(vector_store)
+    poll_task = None
+    if settings.enable_regulatory_poll:
+        from src.regulatory.scheduler import poll_loop
+
+        poll_task = asyncio.create_task(poll_loop())
     yield
+    if poll_task is not None:
+        poll_task.cancel()
 
 
 app = FastAPI(
@@ -47,6 +59,10 @@ app.include_router(summary_router, prefix="/api/summary", tags=["summary"])
 app.include_router(clients_router, prefix="/api/clients", tags=["clients"])
 app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
 app.include_router(onedrive_router, prefix="/api/onedrive", tags=["onedrive"])
+app.include_router(conversations_router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(review_router, prefix="/api/review", tags=["review"])
+app.include_router(telemetry_router, prefix="/api/telemetry", tags=["telemetry"])
+app.include_router(regulatory_router, prefix="/api/regulatory", tags=["regulatory"])
 
 
 @app.get("/health")
