@@ -204,7 +204,7 @@ function serverMessageToLocal(m: ConversationMessage): Message {
       content =
         "Your request was rejected by the model service. Check the API key in the header button — it may be invalid or out of credit.";
     } else if (detail) {
-      content = `The model service couldn't complete this turn (${detail}). Add your DeepSeek API key with the header API key button, then try again.`;
+      content = `The model service couldn't complete this turn (${detail}). Add your API key with the header API key button, then try again.`;
     } else {
       content = "The model service couldn't complete this turn. Please try again.";
     }
@@ -608,7 +608,7 @@ function ChatInner() {
       let friendly = "Something went wrong. Please try again.";
       if (msg.includes("500") || msg.includes("Stream")) {
         friendly =
-          "The backend couldn't process this request. Add your DeepSeek API key with the header API key button.";
+          "The backend couldn't process this request. Add your API key with the header API key button.";
       } else if (msg.includes("401") || msg.includes("403")) {
         friendly = "Authentication failed. Check your API key configuration.";
       } else if (

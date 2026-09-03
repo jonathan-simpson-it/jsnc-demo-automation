@@ -11,7 +11,7 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
     return (
       <div style={{ width: "min(22rem, calc(100vw - 3rem))" }}>
         <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
-          Your DeepSeek API key is stored <strong>only in this browser</strong>{" "}
+          Your API key is stored <strong>only in this browser</strong>{" "}
           (localStorage) and is sent with your requests — never saved on our
           servers.
         </p>
@@ -26,7 +26,7 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
             onDone?.();
           }}
         >
-          Remove DeepSeek key
+          Remove key
         </button>
         <button
           type="button"
@@ -43,17 +43,17 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
   return (
     <div style={{ width: "min(22rem, calc(100vw - 3rem))" }}>
       <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
-        Bring your own DeepSeek API key. It is stored <strong>only in this browser</strong>{" "}
+        Bring your own API key. It is stored <strong>only in this browser</strong>{" "}
         (localStorage) and sent with your requests — never saved on our servers.
       </p>
       <label
-        htmlFor="deepseek-key-input"
+        htmlFor="api-key-input"
         style={{ display: "block", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: "0.75rem" }}
       >
-        DeepSeek API key
+        API key
       </label>
       <input
-        id="deepseek-key-input"
+        id="api-key-input"
         type="password"
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -79,7 +79,7 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
         rel="noreferrer"
         style={{ fontSize: "0.78rem", color: "var(--color-accent)", display: "inline-block", marginTop: "0.5rem" }}
       >
-        Get a free key at platform.deepseek.com
+        Get a free API key
       </a>
     </div>
   );
@@ -121,7 +121,7 @@ export function KeySettings() {
         aria-expanded={open}
         className="button button--ghost"
         style={{ fontSize: "0.72rem", padding: "0.4rem 0.75rem" }}
-        title="DeepSeek API key settings"
+        title="API key settings"
       >
         {label}
       </button>
@@ -158,7 +158,7 @@ export function KeyPrompt({ onConfigure }: { onConfigure: () => void }) {
         marginBottom: "0.75rem",
       }}
     >
-      <strong>Add your DeepSeek API key to start asking questions.</strong>{" "}
+      <strong>Add your API key to start asking questions.</strong>{" "}
       <span style={{ color: "var(--color-muted)" }}>
         This platform keeps no server-side key — yours stays in your browser.
       </span>{" "}
