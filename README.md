@@ -676,6 +676,22 @@ cd frontend && npx next build
 | `ONEDRIVE_CLIENT_ID` | (optional) | Microsoft OAuth client ID |
 | `ONEDRIVE_CLIENT_SECRET` | (optional) | Microsoft OAuth client secret |
 
+### Email Workspace (/summary)
+
+The email page composes platform reports with AI and saves them to the user's
+real Outlook Drafts via Microsoft Graph:
+
+- `POST /api/graph/mail/draft/generate` — composes a draft from the platform
+  report (templates: `digest` / `monthly` / `client` / `alert`; tones:
+  `professional` / `friendly` / `formal`). AI refinement runs when an API key
+  is available; otherwise it falls back to deterministic templates
+  (`generated_by: "template"`).
+- `GET /api/graph/mail/drafts` — lists drafts saved through the workspace
+  (local demo store, or the Graph Drafts folder when configured).
+- `POST /api/graph/mail/drafts` — creates a draft (`content_type: text|html`).
+- Without `GRAPH_*` credentials the page runs on demo mail: sample inbox rows
+  and locally stored drafts (`data/graph_drafts.db`).
+
 ### Bring Your Own Key (BYOK)
 
 This platform is open source and works without a server-side key. Users add their own DeepSeek key via the "API key" button in the header:
