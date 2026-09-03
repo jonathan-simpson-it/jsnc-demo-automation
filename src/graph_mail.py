@@ -124,10 +124,10 @@ def status() -> dict:
 _DEMO_ROWS = [
     ("SFC News Alerts <enquiry@sfc.hk>", "SFC enhances guidance for authorised funds with exposure to private market assets", 1, 9, 30),
     ("HKMA Press Office <enquiry@hkma.gov.hk>", "Scam alert related to banks", 1, 8, 12),
-    ("Jonathan Simpson <jonathan@jsco.hk>", "Q3 portfolio review — schedule", 3, 16, 40),
+    ("Jonathan Simpson <jonathan@jsco.hk>", "Q3 portfolio review: schedule", 3, 16, 40),
     ("SFC News Alerts <enquiry@sfc.hk>", "First cohort of GenA.I. Sandbox++", 4, 11, 5),
     ("HKMA Press Office <enquiry@hkma.gov.hk>", "Exchange Fund Abridged Balance Sheet and Currency Board Account", 4, 9, 0),
-    ("Deal Desk <deals@jsco.hk>", "Enosis term sheet — redline comments", 5, 18, 22),
+    ("Deal Desk <deals@jsco.hk>", "Enosis term sheet: redline comments", 5, 18, 22),
     ("SFC News Alerts <enquiry@sfc.hk>", "Stronger Mainland connectivity reinforces Hong Kong's leading role as China assets gateway", 5, 14, 45),
     ("Compliance <compliance@jsco.hk>", "AML training completion reminder", 6, 12, 10),
     ("HKMA Press Office <enquiry@hkma.gov.hk>", "Monetary Statistics for July 2026", 7, 9, 15),

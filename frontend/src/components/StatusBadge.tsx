@@ -14,7 +14,7 @@ export default function StatusBadge() {
 
   const color = {
     loading: "var(--color-muted)",
-    healthy: "var(--color-accent)",
+    healthy: "var(--color-ok)",
     error: "var(--color-error)",
   }[status];
   const label = {

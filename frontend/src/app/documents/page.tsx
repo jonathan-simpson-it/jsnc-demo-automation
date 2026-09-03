@@ -56,9 +56,9 @@ function fileExt(filename: string): string {
 }
 
 function fmtDate(iso?: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "n/a";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "n/a";
   return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -103,12 +103,44 @@ function FileIcon({ size = 18, color = "var(--color-accent)" }: IconProps) {
   );
 }
 
-function LockIcon({ size = 13, color = "currentColor" }: IconProps) {
+function FileTextIcon({ size = 14, color = "var(--color-accent)" }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
+function ChevronsLeftIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 17l-5-5 5-5" />
+      <path d="M18 17l-5-5 5-5" />
+    </svg>
+  );
+}
+
+function ChevronsRightIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M13 17l5-5-5-5" />
+      <path d="M6 17l5-5-5-5" />
+    </svg>
+  );
+}
+
+function CloudUploadIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 14.9A5 5 0 0 1 7 5.5a7 7 0 0 1 13.4 2.5 4.5 4.5 0 0 1 .6 9" />
+      <path d="M12 12v9" />
+      <path d="M8 17l4-4 4 4" />
     </svg>
   );
 }
@@ -156,62 +188,6 @@ function RefreshIcon({ size = 14 }: IconProps) {
   );
 }
 
-/* ================= Small building blocks ================= */
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "0.68rem",
-  fontWeight: 600,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--color-muted)",
-};
-
-function CountBadge({ n }: { n: number }) {
-  return (
-    <span
-      style={{
-        marginLeft: "auto",
-        fontSize: "0.66rem",
-        color: "var(--color-muted)",
-        background: "var(--color-bg)",
-        border: "1px solid var(--color-line)",
-        borderRadius: 999,
-        padding: "0.05rem 0.5rem",
-        flexShrink: 0,
-      }}
-    >
-      {n}
-    </span>
-  );
-}
-
-function NsChip({ ns }: { ns: string }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.4rem",
-        background: "var(--color-accent-soft)",
-        border: "1px solid var(--color-line)",
-        borderRadius: 999,
-        padding: "0.25rem 0.8rem",
-        fontSize: "0.7rem",
-        color: "var(--color-ink)",
-        whiteSpace: "nowrap",
-      }}
-    >
-      <LockIcon size={12} color="var(--color-accent)" />
-      <span>
-        Isolated RAG namespace:{" "}
-        <code style={{ fontSize: "0.68rem", background: "transparent", padding: 0 }}>
-          {ns}
-        </code>
-      </span>
-    </span>
-  );
-}
-
 /* ================= Page ================= */
 
 export default function DocumentsPage() {
@@ -253,7 +229,7 @@ export default function DocumentsPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const uploading = uploads.some((u) => u.status === "uploading");
   const uploadingFile = uploads.find((u) => u.status === "uploading")?.filename;
-  // Queue progress (the list IS the active batch — handleFiles resets it).
+  // Queue progress (the list IS the active batch; handleFiles resets it).
   const queueTotal = uploads.length;
   const queueDone = uploads.filter(
     (u) => u.status !== "queued" && u.status !== "uploading",
@@ -306,6 +282,19 @@ export default function DocumentsPage() {
   const projectInputRef = useRef<HTMLInputElement>(null);
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+
+  // App-shell layout
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+
+  // Narrow screens start with the sidebar collapsed so the canvas keeps room.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    setSidebarCollapsed(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setSidebarCollapsed(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   // Assign (move) modal
   const [assignDoc, setAssignDoc] = useState<DocumentInfo | null>(null);
@@ -484,7 +473,7 @@ export default function DocumentsPage() {
       // gap (never reaching 88, the next real milestone) so it keeps moving.
       const ticker = window.setInterval(() => {
         const real = uploadRealPct.current[i] ?? 0;
-        if (real < 40) return; // send events still reporting live — stand back
+        if (real < 40) return; // send events still reporting live; stand back
         setUploads((p) =>
           p.map((u, j) => {
             if (j !== i || u.status !== "uploading") return u;
@@ -778,7 +767,7 @@ export default function DocumentsPage() {
     try {
       await reindexDocument(doc.id);
     } catch {
-      window.alert("Re-indexing failed — the source file may be missing.");
+      window.alert("Re-indexing failed. The source file may be missing.");
     } finally {
       setBusyDocId(null);
       bump();
@@ -834,73 +823,80 @@ export default function DocumentsPage() {
 
   /* ---- Render helpers ---- */
 
+  function fmtBytes(b?: number | null): string {
+    if (b == null || b < 0) return "n/a";
+    if (b < 1024) return `${b} B`;
+    const kb = b / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+
+  const iconBtn =
+    "grid h-7 w-7 place-items-center rounded-md text-muted transition-colors hover:bg-neutral-100 hover:text-ink focus-visible:opacity-100 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted";
+
   function renderClientRow(client: Client) {
     const isOpen = expanded.includes(client.id);
     const count = clientCounts.get(client.id) ?? 0;
     return (
-      <div key={client.id}>
-        <div
-          className="doc-tree-row"
-          style={{ padding: "0.05rem 0" }}
-        >
+      <div key={client.id} className="mb-0.5">
+        <div className="group flex items-center">
           <button
             type="button"
-            className="doc-tree-main"
             onClick={() => toggleClient(client.id)}
             aria-expanded={isOpen}
-            aria-label={`${client.name} — ${count} documents`}
+            aria-label={`${client.name}: ${count} documents`}
+            className="flex h-8 min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-[0.84rem] text-ink transition-colors hover:bg-neutral-50"
           >
-            <ChevronIcon
-              size={13}
-              color={isOpen ? "var(--color-ink)" : "var(--color-muted)"}
-            />
-            <span style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
-              <FolderIcon size={15} />
-            </span>
             <span
+              aria-hidden="true"
               style={{
-                fontWeight: 500,
-                fontSize: "0.82rem",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+                transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 150ms ease",
               }}
             >
-              {client.name}
+              <ChevronIcon
+                size={12}
+                color={isOpen ? "var(--color-ink)" : "var(--color-muted)"}
+              />
             </span>
-            <CountBadge n={count} />
+            <span style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <FolderIcon size={16} />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{client.name}</span>
+            {count > 0 && (
+              <span className="ml-auto pl-2 text-[0.66rem] font-medium tabular-nums text-muted">
+                {count}
+              </span>
+            )}
           </button>
           <button
             type="button"
-            className="doc-tree-act"
-            title={`Add project under ${client.name}`}
-            aria-label={`Add project under ${client.name}`}
+            title={`New project under ${client.name}`}
+            aria-label={`New project under ${client.name}`}
             onClick={() => {
               setNewProjectFor(client.id);
               setNewProjectName("");
             }}
+            className={`${iconBtn} opacity-0 group-hover:opacity-100 group-focus-within:opacity-100`}
           >
             <PlusIcon size={13} />
           </button>
           <button
             type="button"
-            className="doc-tree-act doc-tree-act--danger"
             title={`Delete client ${client.name}`}
             aria-label={`Delete client ${client.name}`}
             onClick={() => handleDeleteClient(client)}
+            className={`${iconBtn} opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:text-ink`}
           >
             <TrashIcon size={13} />
           </button>
         </div>
 
         {newProjectFor === client.id && (
-          <div
-            style={{
-              display: "flex",
-              gap: "0.3rem",
-              padding: "0.25rem 0.5rem 0.5rem 1.7rem",
-            }}
-          >
+          <div className="flex items-center gap-1.5 py-1 pl-7 pr-1">
             <input
               ref={projectInputRef}
               value={newProjectName}
@@ -909,32 +905,25 @@ export default function DocumentsPage() {
               onBlur={() => setNewProjectFor(null)}
               placeholder="New project name"
               aria-label={`Project name for ${client.name}`}
-              className="input"
-              style={{ fontSize: "0.76rem", padding: "0.3rem 0.5rem", flex: 1 }}
+              className="input h-7 min-w-0 flex-1 text-[0.76rem]"
+              style={{ padding: "0.25rem 0.5rem" }}
             />
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleCreateProject}
               className="button button--solid button--small"
-              style={{ minHeight: "1.9rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
+              style={{ minHeight: "1.8rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
             >
               Add
             </button>
           </div>
         )}
 
-        {isOpen &&
-          byClient(client.id).map((p) => renderProjectRow(p, client))}
+        {isOpen && byClient(client.id).map((p) => renderProjectRow(p, client))}
         {isOpen && byClient(client.id).length === 0 && (
-          <div
-            style={{
-              padding: "0.2rem 0.5rem 0.5rem 1.7rem",
-              fontSize: "0.7rem",
-              color: "var(--color-muted)",
-            }}
-          >
-            No projects yet — click + to create one.
+          <div className="py-0.5 pl-9 pr-1 text-[0.7rem] text-muted">
+            No projects yet. Use the + button to create one.
           </div>
         )}
       </div>
@@ -942,60 +931,33 @@ export default function DocumentsPage() {
   }
 
   function renderProjectRow(project: Project, client: Client | null) {
-    const count = counts.get(project.id) ?? 0;
     const isActive = activeProjectId === project.id;
     const ns = namespaceLabel(client?.name ?? null, project.name);
     return (
-      <div key={project.id}>
-        <div
-          className={`doc-tree-row${isActive ? " is-active" : ""}`}
-          style={{ padding: "0.05rem 0" }}
+      <div className="group mb-0.5 flex items-center" key={project.id}>
+        <button
+          type="button"
+          onClick={() => selectProject(project.id)}
+          aria-current={isActive ? "true" : undefined}
+          title={`Open ${project.name} · namespace ${ns}`}
+          className={`flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md pl-9 pr-1 text-left text-[0.82rem] transition-colors ${
+            isActive
+              ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-800"
+              : "text-ink hover:bg-neutral-50"
+          }`}
         >
-          <button
-            type="button"
-            className="doc-tree-main"
-            style={{ paddingLeft: "1.7rem" }}
-            onClick={() => selectProject(project.id)}
-            aria-pressed={isActive}
-            aria-label={`${project.name} — ${count} documents`}
-          >
-            <span style={{ color: "var(--color-accent)", display: "inline-flex" }}>
-              <LockIcon size={12} />
-            </span>
-            <span
-              style={{
-                fontSize: "0.8rem",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {project.name}
-            </span>
-            <span
-              style={{
-                fontSize: "0.64rem",
-                color: "var(--color-muted)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: "7rem",
-              }}
-              title={`namespace: ${ns}`}
-            >
-              {ns}
-            </span>
-            <CountBadge n={count} />
-          </button>
-          <button
-            type="button"
-            className="doc-tree-act doc-tree-act--danger"
-            title={`Delete project ${project.name}`}
-            aria-label={`Delete project ${project.name}`}
-            onClick={() => handleDeleteProject(project)}
-          >
-            <TrashIcon size={13} />
-          </button>
-        </div>
+          <FileTextIcon size={13} color={isActive ? "var(--color-ink)" : "var(--color-muted)"} />
+          <span className="min-w-0 flex-1 truncate">{project.name}</span>
+        </button>
+        <button
+          type="button"
+          title={`Delete project ${project.name}`}
+          aria-label={`Delete project ${project.name}`}
+          onClick={() => handleDeleteProject(project)}
+          className={`${iconBtn} opacity-0 group-hover:opacity-100 group-focus-within:opacity-100`}
+        >
+          <TrashIcon size={13} />
+        </button>
       </div>
     );
   }
@@ -1003,211 +965,213 @@ export default function DocumentsPage() {
   /* ---- Render ---- */
 
   return (
-    <div style={{ display: "flex", minHeight: "calc(100vh - 3.5rem)" }}>
-      {/* ============ Sidebar: Client -> Project tree ============ */}
-      <aside
-        style={{
-          width: "17.5rem",
-          flexShrink: 0,
-          borderRight: "1px solid var(--color-line)",
-          background: "var(--color-surface)",
-          padding: "1.25rem 0.75rem",
-          overflowY: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "0 0.4rem 0.6rem",
-          }}
-        >
-          <h4 style={{ ...labelStyle, margin: 0 }}>Workspaces</h4>
+    <div className="kb-shell flex overflow-hidden bg-bg">
+      {/* ============ Collapsed sidebar rail ============ */}
+      {sidebarCollapsed && (
+        <div className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-line bg-surface pt-2">
           <button
             type="button"
-            onClick={() => setShowNewClient((v) => !v)}
-            aria-expanded={showNewClient}
-            aria-label={showNewClient ? "Hide new client form" : "Add client"}
-            className="doc-tree-act"
-            style={{ opacity: 1 }}
+            title="Show workspaces"
+            aria-label="Show workspaces"
+            onClick={() => setSidebarCollapsed(false)}
+            className="grid h-8 w-8 place-items-center rounded-md text-muted transition-colors hover:bg-neutral-100 hover:text-ink"
           >
-            <PlusIcon size={14} />
+            <ChevronsRightIcon size={14} />
           </button>
         </div>
+      )}
 
-        {showNewClient && (
-          <div
-            style={{
-              display: "flex",
-              gap: "0.3rem",
-              padding: "0 0.4rem 0.6rem",
-            }}
-          >
-            <input
-              value={newClientName}
-              onChange={(e) => setNewClientName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateClient()}
-              placeholder="Client name"
-              aria-label="New client name"
-              className="input"
-              style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem", flex: 1 }}
-            />
+      {/* ============ Sidebar: Client -> Project tree ============ */}
+      {!sidebarCollapsed && (
+        <aside
+          aria-label="Workspaces"
+          className="flex w-72 shrink-0 flex-col border-r border-line bg-surface"
+        >
+          {/* Sticky header: workspaces title + collapse */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted">
+              Workspaces
+            </span>
             <button
               type="button"
-              onClick={handleCreateClient}
-              className="button button--solid button--small"
-              style={{ minHeight: "2rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
+              title="Hide sidebar"
+              aria-label="Hide sidebar"
+              onClick={() => setSidebarCollapsed(true)}
+              className="grid h-7 w-7 place-items-center rounded-md text-muted transition-colors hover:bg-neutral-100 hover:text-ink"
             >
-              Add
+              <ChevronsLeftIcon size={14} />
             </button>
           </div>
-        )}
 
-        <div style={{ display: "grid", gap: "0.15rem" }}>
-          {sortedClients.map(renderClientRow)}
-        </div>
-
-        {/* Unassigned projects */}
-        {unassigned.length > 0 && (
-          <>
-            <div
-              style={{
-                margin: "1rem 0 0.35rem",
-                padding: "0 0.4rem",
-                fontSize: "0.68rem",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--color-muted)",
-              }}
+          {/* New workspace / project */}
+          <div className="shrink-0 border-b border-line p-3">
+            <button
+              type="button"
+              onClick={() => setCreateMenuOpen((v) => !v)}
+              aria-expanded={createMenuOpen}
+              className="button button--solid w-full"
+              style={{ minHeight: "2.3rem" }}
             >
-              No client
-            </div>
-            {unassigned.map((p) => renderProjectRow(p, null))}
-          </>
-        )}
+              <PlusIcon size={13} />
+              <span>New workspace</span>
+            </button>
+            {createMenuOpen && (
+              <div className="mt-2 space-y-1 rounded-lg border border-line bg-bg p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setShowNewClient(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent-soft"
+                >
+                  <span style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <FolderIcon size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.8rem] font-medium text-ink">
+                      New client workspace
+                    </span>
+                    <span className="block text-[0.68rem] leading-snug text-muted">
+                      Groups projects under a firm or client
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    setNewProjectFor("none");
+                    setNewProjectName("");
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent-soft"
+                >
+                  <span style={{ display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <FileTextIcon size={15} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[0.8rem] font-medium text-ink">
+                      New standalone project
+                    </span>
+                    <span className="block text-[0.68rem] leading-snug text-muted">
+                      A project without a client folder
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
 
-        {/* Add an unassigned (client-less) project */}
-        <div style={{ padding: "0.75rem 0.4rem 0" }}>
-          {newProjectFor === "none" ? (
-            <div style={{ display: "flex", gap: "0.3rem" }}>
+          {showNewClient && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-line bg-bg px-3 py-2">
               <input
-                ref={projectInputRef}
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
-                onBlur={() => setNewProjectFor(null)}
-                placeholder="Project name"
-                aria-label="New project name"
-                className="input"
-                style={{ fontSize: "0.76rem", padding: "0.3rem 0.5rem", flex: 1 }}
+                autoFocus
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateClient()}
+                placeholder="Client name"
+                aria-label="New client name"
+                className="input h-7 min-w-0 flex-1 text-[0.78rem]"
+                style={{ padding: "0.25rem 0.5rem" }}
               />
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={handleCreateProject}
+                onClick={handleCreateClient}
                 className="button button--solid button--small"
-                style={{ minHeight: "1.9rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
+                style={{ minHeight: "1.8rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
               >
                 Add
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setNewProjectFor("none");
-                setNewProjectName("");
-              }}
-              className="doc-tree-main"
-              style={{
-                color: "var(--color-muted)",
-                fontSize: "0.76rem",
-                gap: "0.4rem",
-                paddingLeft: "0.4rem",
-              }}
-            >
-              <PlusIcon size={12} />
-              Add project without a client
-            </button>
           )}
-        </div>
 
-        <p
-          style={{
-            fontSize: "0.68rem",
-            color: "var(--color-muted)",
-            lineHeight: 1.5,
-            borderTop: "1px solid var(--color-line)",
-            margin: "1rem 0.4rem 0",
-            paddingTop: "0.75rem",
-          }}
-        >
-          Clients group projects; documents are ingested and retrieved strictly
-          inside the selected project&apos;s namespace.
-        </p>
-      </aside>
+          {/* Workspace tree */}
+          <div className="flex-1 overflow-y-auto px-2 py-2">
+            {newProjectFor === "none" && (
+              <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-bg p-2">
+                <input
+                  ref={projectInputRef}
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+                  onBlur={() => setNewProjectFor(null)}
+                  placeholder="Project name"
+                  aria-label="New project name"
+                  className="input h-7 min-w-0 flex-1 text-[0.76rem]"
+                  style={{ padding: "0.25rem 0.5rem" }}
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleCreateProject}
+                  className="button button--solid button--small"
+                  style={{ minHeight: "1.8rem", padding: "0 0.7rem", fontSize: "0.66rem" }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
 
-      {/* ============ Main panel ============ */}
-      <div style={{ flex: 1, padding: "1.5rem 2rem 2.5rem", overflowY: "auto" }}>
-        {/* Scope header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "1rem",
-            flexWrap: "wrap",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <span className="section-eyebrow">Documents</span>
-            {activeProject && activeClient ? (
-              <>
-                <h1
-                  style={{
-                    fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
-                    fontFamily: "var(--font-display)",
-                    fontWeight: 400,
-                    lineHeight: 1.15,
-                    letterSpacing: "-0.01em",
-                    margin: 0,
-                  }}
-                >
-                  {activeClient.name}{" "}
-                  <span style={{ color: "var(--color-muted)" }}>/</span>{" "}
-                  {activeProject.name}
-                </h1>
-                <p style={{ color: "var(--color-muted)", fontSize: "0.86rem", margin: "0.35rem 0 0" }}>
-                  {docs.length} document{docs.length !== 1 ? "s" : ""} ·{" "}
-                  {totalChunks} vectorized chunk{totalChunks !== 1 ? "s" : ""}
-                </p>
-              </>
-            ) : (
-              <>
-                <h1
-                  style={{
-                    fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
-                    fontFamily: "var(--font-display)",
-                    fontWeight: 400,
-                    lineHeight: 1.15,
-                    letterSpacing: "-0.01em",
-                    margin: 0,
-                  }}
-                >
-                  Knowledge base
-                </h1>
-                <p style={{ color: "var(--color-muted)", fontSize: "0.86rem", margin: "0.35rem 0 0" }}>
-                  {allDocs.length} document{allDocs.length !== 1 ? "s" : ""} across{" "}
-                  {projects.length} project{projects.length !== 1 ? "s" : ""}
-                </p>
-              </>
+            {sortedClients.map(renderClientRow)}
+
+            {unassigned.length > 0 && (
+              <div className="mb-1 mt-3 px-2 text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-muted">
+                Standalone
+              </div>
+            )}
+            {unassigned.map((p) => renderProjectRow(p, null))}
+
+            {sortedClients.length === 0 && projects.length === 0 && (
+              <p className="px-3 py-10 text-center text-[0.78rem] leading-relaxed text-muted">
+                No workspaces yet.
+                <br />
+                Create one to start uploading.
+              </p>
             )}
           </div>
+        </aside>
+      )}
 
-          {/* Source toggle */}
-          <div style={{ display: "flex", gap: "0.3rem", flexShrink: 0 }}>
+      {/* ============ Main canvas ============ */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Canvas toolbar */}
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-4 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-[1.02rem] font-semibold tracking-tight text-ink">
+              {activeProject ? (
+                <>
+                  {activeClient ? (
+                    <span className="font-normal text-muted">{activeClient.name} / </span>
+                  ) : null}
+                  <span>{activeProject.name}</span>
+                </>
+              ) : (
+                "Knowledge base"
+              )}
+            </h1>
+            <p className="truncate text-[0.72rem] text-muted">
+              {activeProject ? (
+                <>
+                  {docs.length} document{docs.length === 1 ? "" : "s"} ·{" "}
+                  {totalChunks} vectorized chunk{totalChunks === 1 ? "" : "s"}
+                  {activeNs ? ` · namespace ${activeNs}` : ""}
+                </>
+              ) : (
+                <>
+                  {allDocs.length} document{allDocs.length === 1 ? "" : "s"} across{" "}
+                  {projects.length} project{projects.length === 1 ? "" : "s"}
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* Source segmented control */}
+          <div
+            role="group"
+            aria-label="Source"
+            className="flex shrink-0 items-center rounded-lg border border-line bg-bg p-0.5"
+          >
             {(["local", "onedrive"] as Tab[]).map((t) => (
               <button
                 key={t}
@@ -1216,1144 +1180,720 @@ export default function DocumentsPage() {
                   setActiveTab(t);
                   if (t === "onedrive" && odConnected) loadOdFiles("/");
                 }}
-                className={`button button--small ${
-                  activeTab === t ? "button--solid" : "button--ghost"
-                }`}
                 aria-pressed={activeTab === t}
+                className={`rounded-md px-3 py-1.5 text-[0.72rem] font-medium transition-colors ${
+                  activeTab === t
+                    ? "bg-ink text-surface"
+                    : "text-muted hover:text-ink"
+                }`}
               >
                 {t === "local" ? "Local" : "OneDrive"}
               </button>
             ))}
           </div>
-        </div>
+        </header>
 
-        {/* Active scope isolation banner / guarded state */}
-        {activeProject ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              flexWrap: "wrap",
-              border: "1px solid var(--color-line)",
-              borderRadius: "var(--radius-lg)",
-              background: "var(--color-surface)",
-              padding: "0.75rem 1rem",
-              marginBottom: "1.25rem",
-            }}
-          >
-            <span style={{ fontSize: "0.68rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-muted)", fontWeight: 600 }}>
-              Active workspace
-            </span>
-            <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
-              {activeClient ? `Client: ${activeClient.name}` : "Client: —"}
-              <span style={{ color: "var(--color-muted)" }}> / </span>
-              Project: {activeProject.name}
-            </span>
-            {activeNs && <NsChip ns={activeNs} />}
-          </div>
-        ) : (
-          <div
-            style={{
-              border: "1px dashed var(--color-line)",
-              borderRadius: "var(--radius-lg)",
-              background: "var(--color-surface)",
-              padding: "1.1rem 1.25rem",
-              marginBottom: "1.25rem",
-              display: "flex",
-              gap: "0.9rem",
-              alignItems: "flex-start",
-            }}
-          >
-            <span
-              style={{
-                display: "grid",
-                placeItems: "center",
-                width: "2.2rem",
-                height: "2.2rem",
-                borderRadius: 999,
-                background: "var(--color-accent-soft)",
-                color: "var(--color-accent)",
-                flexShrink: 0,
-              }}
-            >
-              <LockIcon size={16} />
-            </span>
-            <div>
-              <p style={{ margin: 0, fontSize: "0.92rem", fontWeight: 500 }}>
-                Select a project to manage its documents.
-              </p>
-              <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "var(--color-muted)", maxWidth: "34rem" }}>
-                Workspaces are isolated per project: uploads, imports, and RAG
-                retrieval stay inside the project you pick in the sidebar. Expand
-                a client to reveal its projects.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ---------- Local uploads ---------- */}
-        {activeTab === "local" && (
-          <>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept=".pdf,.txt,.md,.docx,.xlsx"
-              onChange={(e) => e.target.files && handleFiles(e.target.files)}
-              aria-label="Upload PDF, TXT, MD, DOCX, or XLSX files"
-              disabled={activeProjectId == null}
-              style={{
-                position: "absolute",
-                width: "1px",
-                height: "1px",
-                padding: 0,
-                margin: "-1px",
-                overflow: "hidden",
-                clip: "rect(0 0 0 0)",
-                whiteSpace: "nowrap",
-                border: 0,
-                pointerEvents: "none",
-              }}
-            />
-            <button
-              type="button"
-              disabled={activeProjectId == null || uploading}
-              onClick={() => {
-                if (activeProjectId != null && !uploading) inputRef.current?.click();
-              }}
-              onDragOver={(e) => {
-                // Always cancel the browser default so dragging over the zone
-                // never shows the forbidden-drop cursor.
-                e.preventDefault();
-                e.stopPropagation();
-                if (activeProjectId == null || uploading) {
-                  // No upload target (or one already in flight): keep the
-                  // native "can't drop" cue but swallow the event so the page
-                  // never navigates to the file.
-                  e.dataTransfer.dropEffect = "none";
-                  return;
-                }
-                e.dataTransfer.dropEffect = "copy";
-                setDragOver(true);
-              }}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!uploading) setDragOver(true);
-              }}
-              onDragLeave={(e) => {
-                // Leave the dropzone lit while a file drag is still anywhere
-                // in the window — the window-level depth counter owns when the
-                // drag actually ends and clears the highlight.
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dragDepth.current = 0;
-                setDragOver(false);
-                if (activeProjectId == null || uploading) return;
-                handleFiles(e.dataTransfer.files);
-              }}
-              aria-describedby="upload-hint"
-              className="flex w-full flex-col items-center justify-center gap-1.5 text-center"
-              style={{
-                width: "100%",
-                minHeight: 180,
-                border: `2px dashed ${
-                  activeProjectId == null || uploading
-                    ? "var(--color-line)"
-                    : dragOver
-                      ? "var(--color-accent)"
-                      : "var(--color-line)"
-                }`,
-                background: activeProjectId == null || uploading
-                  ? "var(--color-surface)"
-                  : dragOver
-                    ? "var(--color-accent-soft)"
-                    : "var(--color-surface)",
-                borderRadius: "var(--radius-lg)",
-                padding: "2rem",
-                textAlign: "center",
-                cursor:
-                  activeProjectId == null
-                    ? "not-allowed"
-                    : uploading
-                      ? "default"
-                      : "pointer",
-                transition: "all 220ms ease",
-                marginBottom: "0.75rem",
-                opacity: activeProjectId == null ? 0.75 : 1,
-              }}
-            >
-              {uploading ? (
-                <span
-                  className="flex items-center justify-center gap-2"
-                  style={{ color: "var(--color-ink)" }}
-                >
-                  <span
-                    className="streaming-dots"
-                    style={{ padding: 0 }}
-                    aria-hidden="true"
-                  >
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span
-                    style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--color-ink)" }}
-                  >
-                    Uploading {uploadingFile}…
-                  </span>
-                </span>
-              ) : flash ? (
-                <span
-                  role="status"
-                  className="flex flex-col items-center justify-center"
-                  style={{
-                    gap: "0.55rem",
-                    opacity: flashLeaving ? 0 : 1,
-                    transition: "opacity 450ms ease",
-                  }}
-                >
-                  <svg
-                    width="32"
-                    height="32"
-                    viewBox="0 0 26 26"
-                    aria-hidden="true"
-                    className="upload-success-pop"
-                  >
-                    <circle
-                      cx="13"
-                      cy="13"
-                      r="12"
-                      fill="none"
-                      stroke={flash.ok ? "var(--color-accent)" : "var(--color-muted)"}
-                      strokeWidth="1.6"
-                      opacity="0.35"
-                    />
-                    <path
-                      className="upload-check-path"
-                      d="M7.5 13.5l3.8 3.8 7.2-8.2"
-                      fill="none"
-                      stroke={flash.ok ? "var(--color-accent)" : "var(--color-muted)"}
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span
+        {/* Canvas body */}
+        <div className="flex-1 overflow-y-auto">
+          {activeProject ? (
+            <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+              {/* ---------- Local uploads ---------- */}
+              {activeTab === "local" && (
+                <section aria-label="Upload documents">
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.txt,.md,.docx,.xlsx"
+                    onChange={(e) => e.target.files && handleFiles(e.target.files)}
+                    aria-label="Upload PDF, TXT, MD, DOCX, or XLSX files"
                     style={{
-                      fontSize: "0.875rem",
-                      fontWeight: 500,
-                      color: flash.ok ? "var(--color-accent)" : "var(--color-muted)",
-                    }}
-                  >
-                    {flash.label}
-                  </span>
-                </span>
-              ) : (
-                <>
-                  <p
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: 500,
-                      margin: 0,
-                      color: "var(--color-ink)",
-                    }}
-                  >
-                    Drop files here or click to upload
-                  </p>
-                  <p
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "var(--color-muted)",
-                      margin: 0,
-                    }}
-                  >
-                    PDF, TXT, MD, DOCX, XLSX
-                  </p>
-                </>
-              )}
-            </button>
-
-            <p
-              id="upload-hint"
-              style={{
-                fontSize: "0.74rem",
-                color: "var(--color-muted)",
-                margin: 0,
-                textAlign: "center",
-              }}
-            >
-              {activeProject
-                ? `Target: ${activeProject.name}${activeNs ? ` · ${activeNs}` : ""}`
-                : "Select or create a project to ingest documents into an isolated space."}
-            </p>
-
-            {uploads.length > 0 && (
-              <div style={{ marginBottom: "1.25rem" }}>
-                {/* Queue progress bar */}
-                <div style={{ marginBottom: "0.5rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      gap: "0.75rem",
-                      fontSize: "0.74rem",
-                      color: "var(--color-muted)",
-                      marginBottom: "0.3rem",
-                    }}
-                  >
-                    <span>
-                      {queueActiveIdx >= 0
-                        ? `Uploading file ${queueActiveIdx + 1} of ${queueTotal} · ${Math.round(queueActivePct)}%`
-                        : queueDone === queueTotal
-                          ? `${queueDone} file${queueDone !== 1 ? "s" : ""} uploaded`
-                          : `Queued ${queueTotal - queueDone} file${queueTotal - queueDone !== 1 ? "s" : ""}`}
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 600,
-                        color:
-                          queueDone === queueTotal
-                            ? "var(--color-accent)"
-                            : "var(--color-ink)",
-                      }}
-                    >
-                      {queuePct}%
-                    </span>
-                  </div>
-                  <div
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={queuePct}
-                    style={{
-                      height: "0.4rem",
-                      borderRadius: "999px",
-                      background: "var(--color-line)",
+                      position: "absolute",
+                      width: "1px",
+                      height: "1px",
+                      padding: 0,
+                      margin: "-1px",
                       overflow: "hidden",
+                      clip: "rect(0 0 0 0)",
+                      whiteSpace: "nowrap",
+                      border: 0,
+                      pointerEvents: "none",
                     }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${queuePct}%`,
-                        borderRadius: "999px",
-                        background: "var(--color-accent)",
-                        transition: "width 300ms ease, background 300ms ease",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {uploads.map((u, i) => {
-                    const isActive = u.status === "uploading";
-                    const isQueued = u.status === "queued";
-                    const dotColor =
-                      u.status === "success"
-                        ? "var(--color-accent)"
-                        : u.status === "partial"
-                          ? "var(--color-muted)"
-                          : u.status === "error"
-                            ? "var(--color-error)"
-                            : "var(--color-muted)";
-                    const sub =
-                      u.status === "queued"
-                        ? "Waiting in queue…"
-                        : u.status === "uploading"
-                          ? `Uploading… ${Math.round(u.progress ?? 0)}%`
-                          : (u.message ??
-                            (u.status === "error" ? "Upload failed" : ""));
-                    const statusColor =
-                      u.status === "success"
-                        ? "var(--color-accent)"
-                        : u.status === "partial"
-                          ? "var(--color-muted)"
-                          : u.status === "error"
-                            ? "var(--color-error)"
-                            : u.status === "uploading"
-                              ? "var(--color-accent)"
-                              : "var(--color-muted)";
-                    return (
-                      <div
-                        key={`${u.filename}-${i}`}
-                        style={{
-                          position: "relative",
-                          overflow: "hidden",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.65rem",
-                          background: isActive
-                            ? "var(--color-accent-soft)"
-                            : "var(--color-surface)",
-                          border: `1px solid ${
-                            isActive
-                              ? "var(--color-accent)"
-                              : "var(--color-line)"
-                          }`,
-                          borderRadius: "var(--radius-md)",
-                          padding: "0.55rem 0.8rem",
-                          fontSize: "0.82rem",
-                          transition:
-                            "border-color 200ms ease, background 200ms ease",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: "1.4rem",
-                            minWidth: "1.4rem",
-                            height: "1.4rem",
-                            borderRadius: "999px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "0.66rem",
-                            fontWeight: 600,
-                            color: isQueued
-                              ? "var(--color-muted)"
-                              : isActive
-                                ? "var(--color-accent)"
-                                : "var(--color-accent)",
-                            background: "var(--color-bg)",
-                            border: "1px solid var(--color-line)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {i + 1}
-                        </span>
-                        {isActive ? (
-                          <span
-                            className="streaming-dots"
-                            style={{ padding: 0 }}
-                            aria-hidden="true"
-                          >
-                            <span />
-                            <span />
-                            <span />
-                          </span>
-                        ) : (
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{
-                              background: dotColor,
-                              flexShrink: 0,
-                              opacity: isQueued ? 0.55 : 1,
-                            }}
-                          />
-                        )}
-                        <span
-                          style={{
-                            flex: 1,
-                            minWidth: 0,
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: isActive || isQueued ? 500 : 600,
-                              color: "var(--color-ink)",
-                            }}
-                          >
-                            {u.filename}
-                          </span>
-                          {sub && (
-                            <span
-                              style={{
-                                display: "block",
-                                fontSize: "0.76rem",
-                                color:
-                                  u.status === "error"
-                                    ? "var(--color-error)"
-                                    : u.status === "partial"
-                                      ? "var(--color-muted)"
-                                      : "var(--color-muted)",
-                              }}
-                            >
-                              {sub}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.66rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.06em",
-                            textTransform: "uppercase",
-                            color: statusColor,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {isActive
-                            ? `${Math.round(u.progress ?? 0)}%`
-                            : u.status}
-                        </span>
-                        {isActive && (
-                          <span
-                            aria-hidden="true"
-                            style={{
-                              position: "absolute",
-                              left: 0,
-                              bottom: 0,
-                              height: 3,
-                              width: "100%",
-                              background: "var(--color-line)",
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "block",
-                                height: "100%",
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(0, u.progress ?? 0),
-                                )}%`,
-                                background: "var(--color-accent)",
-                                transition: "width 200ms linear",
-                              }}
-                            />
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ---------- OneDrive ---------- */}
-        {activeTab === "onedrive" && (
-          <div style={{ marginBottom: "1.25rem" }}>
-            {!odConnected ? (
-              <div
-                style={{
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-line)",
-                  borderRadius: "var(--radius-lg)",
-                  padding: "1.75rem 2rem",
-                  textAlign: "center",
-                }}
-              >
-                <p style={{ fontSize: "0.9rem", fontWeight: 500, margin: "0 0 0.5rem" }}>
-                  Connect your OneDrive to import documents.
-                </p>
-                <p style={{ fontSize: "0.78rem", color: "var(--color-muted)", margin: "0 0 1rem" }}>
-                  Requires a Microsoft account with Files.Read.All permission.
-                </p>
-                <button onClick={connectOneDrive} className="button button--solid">
-                  Connect OneDrive
-                </button>
-              </div>
-            ) : activeProjectId == null ? (
-              <div
-                style={{
-                  background: "var(--color-surface)",
-                  border: "1px dashed var(--color-line)",
-                  borderRadius: "var(--radius-lg)",
-                  padding: "1.25rem 1.5rem",
-                  textAlign: "center",
-                  color: "var(--color-muted)",
-                  fontSize: "0.85rem",
-                }}
-              >
-                Select a project from the sidebar before importing — files are
-                ingested into that project&apos;s isolated RAG namespace.
-              </div>
-            ) : (
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.6rem",
-                    marginBottom: "0.8rem",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span className="w-2 h-2 rounded-full" style={{ background: "var(--color-accent)" }} />
-                  <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
-                    OneDrive connected · importing into{" "}
-                    <strong style={{ color: "var(--color-ink)" }}>{activeProject?.name}</strong>
-                    {activeNs ? ` (${activeNs})` : ""}
-                  </span>
-                  <span style={{ fontSize: "0.72rem", color: "var(--color-muted)", marginLeft: "auto" }}>
-                    {odPath}
-                  </span>
-                </div>
-                {odLoading ? (
-                  <p style={{ color: "var(--color-muted)", fontSize: "0.85rem", padding: "1rem 0" }}>
-                    Loading...
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    {odPath !== "/" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const parent = odPath.split("/").slice(0, -1).join("/") || "/";
-                          loadOdFiles(parent);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          padding: "0.5rem 0.75rem",
-                          borderRadius: "var(--radius-md)",
-                          border: "none",
-                          background: "transparent",
-                          cursor: "pointer",
-                          fontSize: "0.85rem",
-                          color: "var(--color-muted)",
-                          width: "100%",
-                          textAlign: "left",
-                        }}
-                      >
-                        <span style={{ fontSize: "0.75rem" }}>&larr;</span> Back
-                      </button>
-                    )}
-                    {odFiles.map((f) => (
-                      <div
-                        key={f.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.6rem",
-                          background: "var(--color-surface)",
-                          border: "1px solid var(--color-line)",
-                          borderRadius: "var(--radius-md)",
-                          padding: "0.55rem 0.75rem",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.85rem",
-                            width: "1.25rem",
-                            textAlign: "center",
-                            flexShrink: 0,
-                            display: "inline-flex",
-                            justifyContent: "center",
-                          }}
-                        >
-                          {f.is_folder ? <FolderIcon /> : <FileIcon />}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            f.is_folder ? loadOdFiles(f.path + "/" + f.name) : handleOdImport(f)
-                          }
-                          style={{
-                            flex: 1,
-                            textAlign: "left",
-                            border: "none",
-                            background: "none",
-                            cursor: "pointer",
-                            fontSize: "0.85rem",
-                            color: "var(--color-ink)",
-                            padding: 0,
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {f.name}
-                        </button>
-                        {!f.is_folder && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOdImport(f)}
-                              disabled={odImportingIds.has(f.id)}
-                              className="button button--ghost button--small"
-                              style={{ fontSize: "0.68rem", padding: "0.25rem 0.6rem", minHeight: "2rem" }}
-                            >
-                              {odImportingIds.has(f.id) ? "Importing..." : "Import"}
-                            </button>
-                            <span style={{ fontSize: "0.72rem", color: "var(--color-muted)", flexShrink: 0 }}>
-                              {f.size > 1024 * 1024
-                                ? `${(f.size / 1024 / 1024).toFixed(1)} MB`
-                                : `${(f.size / 1024).toFixed(0)} KB`}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {odFiles.length === 0 && (
-                      <p style={{ color: "var(--color-muted)", fontSize: "0.85rem", padding: "1rem 0" }}>
-                        No files in this folder.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ---------- Live import status (per file) ---------- */}
-            {odImports.length > 0 && (
-              <div style={{ marginTop: "1rem" }}>
-                <h4
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "var(--color-muted)",
-                    margin: "0 0 0.6rem",
-                  }}
-                >
-                  Import status
-                </h4>
-                <div className="space-y-2">
-                  {odImports.map((row, i) => {
-                    const isImporting = row.status === "importing";
-                    const isError = row.status === "error";
-                    const dotColor =
-                      row.status === "success"
-                        ? "var(--color-accent)"
-                        : row.status === "error"
-                          ? "var(--color-error)"
-                          : "var(--color-muted)";
-                    return (
-                      <div
-                        key={`${row.fileId}-${i}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.65rem",
-                          background: isImporting
-                            ? "var(--color-accent-soft)"
-                            : "var(--color-surface)",
-                          border: `1px solid ${
-                            isImporting ? "var(--color-accent)" : "var(--color-line)"
-                          }`,
-                          borderRadius: "var(--radius-md)",
-                          padding: "0.55rem 0.8rem",
-                          fontSize: "0.82rem",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: "1.4rem",
-                            minWidth: "1.4rem",
-                            height: "1.4rem",
-                            borderRadius: "999px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "0.66rem",
-                            fontWeight: 600,
-                            color: isImporting
-                              ? "var(--color-accent)"
-                              : row.status === "success"
-                                ? "var(--color-accent)"
-                                : "var(--color-muted)",
-                            background: "var(--color-bg)",
-                            border: "1px solid var(--color-line)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {i + 1}
-                        </span>
-                        {isImporting ? (
-                          <span
-                            className="streaming-dots"
-                            style={{ padding: 0 }}
-                            aria-hidden="true"
-                          >
-                            <span />
-                            <span />
-                            <span />
-                          </span>
-                        ) : (
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: dotColor, flexShrink: 0 }}
-                          />
-                        )}
-                        <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
-                          <span
-                            style={{
-                              fontWeight: isImporting ? 500 : 600,
-                              color: "var(--color-ink)",
-                            }}
-                          >
-                            {row.filename}
-                          </span>
-                          {row.message && (
-                            <span
-                              style={{
-                                display: "block",
-                                fontSize: "0.76rem",
-                                color: isError
-                                  ? "var(--color-error)"
-                                  : "var(--color-muted)",
-                              }}
-                            >
-                              {row.message}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.66rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.06em",
-                            textTransform: "uppercase",
-                            color: isImporting
-                              ? "var(--color-accent)"
-                              : isError
-                                ? "var(--color-error)"
-                                : "var(--color-accent)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {row.status}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ---------- Documents in active scope ---------- */}
-        <div style={{ marginTop: "0.5rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "0.75rem",
-              flexWrap: "wrap",
-              marginBottom: "0.6rem",
-            }}
-          >
-            <h4 style={{ ...labelStyle, margin: 0 }}>
-              {activeProject ? `Documents in ${activeProject.name}` : "Documents"}
-            </h4>
-
-            {/* Tag filter (strictly scoped to current project list) */}
-            {activeProject && docs.length > 0 && (
-              <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTagId(null)}
-                  aria-pressed={selectedTagId == null}
-                  className="agent-pill"
-                  style={{
-                    fontSize: "0.7rem",
-                    padding: "0.2rem 0.7rem",
-                    background: selectedTagId == null ? "var(--color-accent)" : "transparent",
-                    color: selectedTagId == null ? "#fff" : undefined,
-                  }}
-                >
-                  All tags
-                </button>
-                {tagFilterOptions.map((t) => (
+                  />
                   <button
-                    key={t.id}
                     type="button"
-                    onClick={() => setSelectedTagId(selectedTagId === t.id ? null : t.id)}
-                    aria-pressed={selectedTagId === t.id}
-                    className="agent-pill"
-                    style={{
-                      fontSize: "0.7rem",
-                      padding: "0.2rem 0.7rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
-                      background:
-                        selectedTagId === t.id ? "var(--color-accent)" : "transparent",
-                      color: selectedTagId === t.id ? "#fff" : undefined,
+                    disabled={uploading}
+                    onClick={() => {
+                      if (!uploading) inputRef.current?.click();
                     }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (uploading) {
+                        e.dataTransfer.dropEffect = "none";
+                        return;
+                      }
+                      e.dataTransfer.dropEffect = "copy";
+                      setDragOver(true);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!uploading) setDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      dragDepth.current = 0;
+                      setDragOver(false);
+                      if (uploading) return;
+                      handleFiles(e.dataTransfer.files);
+                    }}
+                    aria-describedby="upload-hint"
+                    className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition-all ${
+                      uploading
+                        ? "cursor-default border-line bg-surface"
+                        : dragOver
+                          ? "cursor-copy border-accent bg-accent-soft"
+                          : "cursor-pointer border-line bg-surface hover:border-neutral-400"
+                    }`}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ background: t.color, flexShrink: 0 }} />
-                    {t.name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setShowNewTag((v) => !v)}
-                  className="agent-pill"
-                  style={{ fontSize: "0.7rem", padding: "0.2rem 0.7rem" }}
-                  aria-expanded={showNewTag}
-                >
-                  + New tag
-                </button>
-              </div>
-            )}
-          </div>
-
-          {showNewTag && (
-            <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.75rem", maxWidth: "20rem" }}>
-              <input
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
-                placeholder="Tag name"
-                aria-label="New tag name"
-                className="input"
-                style={{ fontSize: "0.8rem", padding: "0.35rem 0.6rem", flex: 1 }}
-              />
-              <button type="button" onClick={handleCreateTag} className="button button--solid button--small">
-                Add
-              </button>
-            </div>
-          )}
-
-          {activeProjectId == null ? (
-            <p style={{ color: "var(--color-muted)", fontSize: "0.86rem", padding: "2rem 0", textAlign: "center" }}>
-              No workspace selected. Pick a project in the sidebar to view its
-              documents.
-            </p>
-          ) : docs.length === 0 ? (
-            <p style={{ color: "var(--color-muted)", fontSize: "0.86rem", padding: "2rem 0", textAlign: "center" }}>
-              No documents in this project yet. Upload files above — they are
-              ingested into the project&apos;s isolated RAG namespace.
-            </p>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <div style={{ minWidth: "56rem" }}>
-                {/* Header row */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "minmax(13rem, 2.2fr) 4.5rem 8rem 8.5rem minmax(9rem, 1.4fr) 11rem",
-                    gap: "0.75rem",
-                    alignItems: "center",
-                    padding: "0.45rem 0.9rem",
-                    borderBottom: "1px solid var(--color-line)",
-                  }}
-                >
-                  {[
-                    "Document",
-                    "Type",
-                    "Ingestion",
-                    "Date added",
-                    "Tags",
-                    "Actions",
-                  ].map((col) => (
-                    <span key={col} style={labelStyle}>
-                      {col}
-                    </span>
-                  ))}
-                </div>
-
-                {docs.map((d) => {
-                  const status = statusOf(d);
-                  const type = fileExt(d.filename);
-                  const docTags = d.tags ?? [];
-                  return (
-                    <div
-                      key={d.id ?? d.filename}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "minmax(13rem, 2.2fr) 4.5rem 8rem 8.5rem minmax(9rem, 1.4fr) 11rem",
-                        gap: "0.75rem",
-                        alignItems: "center",
-                        padding: "0.65rem 0.9rem",
-                        borderBottom: "1px solid var(--color-line)",
-                        background: "var(--color-surface)",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontWeight: 500,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={d.filename}
-                        >
-                          {d.filename}
-                        </div>
-                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.15rem" }}>
-                          {d.source === "onedrive" && (
-                            <span className="chip" style={{ fontSize: "0.62rem", padding: "0 0.35rem" }}>
-                              onedrive
-                            </span>
-                          )}
-                          {d.client_name && d.project_name && (
-                            <span style={{ fontSize: "0.68rem", color: "var(--color-muted)" }}>
-                              {d.client_name} / {d.project_name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <span
-                          className="chip"
-                          style={{ fontSize: "0.66rem", padding: "0.15rem 0.45rem" }}
-                        >
-                          {type}
+                    {uploading ? (
+                      <span className="flex items-center justify-center gap-2.5">
+                        <span className="streaming-dots" aria-hidden="true" style={{ padding: 0 }}>
+                          <span />
+                          <span />
+                          <span />
                         </span>
-                      </div>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                            fontSize: "0.78rem",
-                            fontWeight: 500,
-                            color:
-                              status.label === "Vectorized"
-                                ? "var(--color-ink)"
-                                : "var(--color-muted)",
-                          }}
+                        <span className="text-sm font-medium text-ink">
+                          Uploading {uploadingFile}…
+                        </span>
+                      </span>
+                    ) : flash ? (
+                      <span
+                        role="status"
+                        className="flex flex-col items-center gap-1.5"
+                        style={{
+                          opacity: flashLeaving ? 0 : 1,
+                          transition: "opacity 450ms ease",
+                        }}
+                      >
+                        <svg
+                          width="30"
+                          height="30"
+                          viewBox="0 0 26 26"
+                          aria-hidden="true"
+                          className="upload-success-pop"
                         >
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: status.color, flexShrink: 0 }}
+                          <circle
+                            cx="13"
+                            cy="13"
+                            r="12"
+                            fill="none"
+                            stroke={
+                              flash.ok ? "var(--color-ok)" : "var(--color-muted)"
+                            }
+                            strokeWidth="1.6"
+                            opacity="0.35"
                           />
-                          {status.label}
+                          <path
+                            className="upload-check-path"
+                            d="M7.5 13.5l3.8 3.8 7.2-8.2"
+                            fill="none"
+                            stroke={
+                              flash.ok ? "var(--color-ok)" : "var(--color-muted)"
+                            }
+                            strokeWidth="2.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        <span
+                          className="text-sm font-medium"
+                          style={{
+                            color: flash.ok ? "var(--color-ok)" : "var(--color-muted)",
+                          }}
+                        >
+                          {flash.label}
                         </span>
-                        <span style={{ fontSize: "0.66rem", color: "var(--color-muted)" }}>
-                          {d.chunks} chunk{d.chunks !== 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <span className="flex flex-col items-center gap-1">
+                        <span className="text-accent" style={{ lineHeight: 0 }}>
+                          <CloudUploadIcon size={26} />
+                        </span>
+                        <span className="mt-2 text-sm font-medium text-ink">
+                          Drop files here or click to browse
+                        </span>
+                        <span className="text-xs text-muted">
+                          PDF · TXT · MD · DOCX · XLSX, ingested into this workspace
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                  <p
+                    id="upload-hint"
+                    className="mt-2 text-center text-[0.72rem] text-muted"
+                  >
+                    Target: {activeProject.name}
+                    {activeNs ? ` · namespace ${activeNs}` : ""}
+                  </p>
+
+                  {/* Live upload queue */}
+                  {uploads.length > 0 && (
+                    <div className="mt-4">
+                      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[0.74rem] text-muted">
+                        <span>
+                          {queueActiveIdx >= 0
+                            ? `Uploading file ${queueActiveIdx + 1} of ${queueTotal} · ${Math.round(queueActivePct)}%`
+                            : queueDone === queueTotal
+                              ? `${queueDone} file${queueDone !== 1 ? "s" : ""} uploaded`
+                              : `Queued ${queueTotal - queueDone} file${queueTotal - queueDone !== 1 ? "s" : ""}`}
+                        </span>
+                        <span className="font-semibold tabular-nums text-ink">
+                          {queuePct}%
                         </span>
                       </div>
-
-                      <div style={{ fontSize: "0.76rem", color: "var(--color-muted)" }}>
-                        {fmtDate(d.created_at)}
+                      <div
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={queuePct}
+                        className="h-1.5 overflow-hidden rounded-sm bg-line"
+                      >
+                        <div
+                          className="h-full rounded-sm transition-[width] duration-300 ease-out"
+                          style={{ width: `${queuePct}%`, background: "var(--color-accent)" }}
+                        />
                       </div>
-
-                      <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap", alignItems: "center" }}>
-                        {docTags.map((t) => (
-                          <span
-                            key={t.id}
-                            className="chip"
-                            style={{
-                              fontSize: "0.62rem",
-                              padding: "0.05rem 0.4rem",
-                              background: t.color + "22",
-                              borderColor: t.color + "40",
-                            }}
-                          >
-                            {t.name}
-                            <button
-                              type="button"
-                              onClick={() => d.id && handleUntagDoc(d.id, t.id)}
-                              aria-label={`Remove tag ${t.name} from ${d.filename}`}
+                      <div className="mt-3 space-y-2">
+                        {uploads.map((u, i) => {
+                          const isActive = u.status === "uploading";
+                          const isQueued = u.status === "queued";
+                          const ok = u.status === "success";
+                          const failed = u.status === "error";
+                          const partial = u.status === "partial";
+                          const dotColor = failed
+                            ? "var(--color-error)"
+                            : ok
+                              ? "var(--color-ok)"
+                              : "var(--color-muted)";
+                          const sub = isQueued
+                            ? "Waiting in queue…"
+                            : isActive
+                              ? `${Math.round(u.progress ?? 0)}%`
+                              : u.message ?? "";
+                          return (
+                            <div
+                              key={`${u.filename}-${i}`}
+                              className="flex items-center gap-3 rounded-md border px-3 py-2 text-[0.82rem] transition-colors"
                               style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                marginLeft: "0.15rem",
-                                fontSize: "0.6rem",
-                                color: "var(--color-muted)",
-                                padding: "0.15rem",
+                                position: "relative",
+                                overflow: "hidden",
+                                background: isActive
+                                  ? "var(--color-accent-soft)"
+                                  : "var(--color-surface)",
+                                borderColor: isActive
+                                  ? "var(--color-accent)"
+                                  : "var(--color-line)",
                               }}
                             >
-                              x
-                            </button>
-                          </span>
-                        ))}
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value && d.id) handleTagDoc(d.id, Number(e.target.value));
-                          }}
-                          aria-label={`Add tag to ${d.filename}`}
-                          className="select"
-                          style={{
-                            fontSize: "0.66rem",
-                            padding: "0.15rem 1.3rem 0.15rem 0.4rem",
-                            minHeight: "1.6rem",
-                          }}
-                        >
-                          <option value="">+ Tag</option>
-                          {tags
-                            .filter((t) => !docTags.some((dt) => dt.id === t.id))
-                            .map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => d.id && setAssignDoc(d)}
-                          className="button button--ghost button--small"
-                          style={{ fontSize: "0.66rem", padding: "0.2rem 0.6rem", minHeight: "1.8rem" }}
-                        >
-                          Move
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleReindex(d)}
-                          disabled={busyDocId === d.id || !d.id}
-                          title="Re-index from source file"
-                          aria-label={`Re-index ${d.filename}`}
-                          className="doc-tree-act"
-                          style={{
-                            opacity: 1,
-                            width: "1.8rem",
-                            height: "1.8rem",
-                            border: "1px solid var(--color-line)",
-                          }}
-                        >
-                          <RefreshIcon size={14} />
-                        </button>
-                        {d.id && (
-                          <a
-                            href={documentDownloadUrl(d.id)}
-                            title="Download original file"
-                            aria-label={`Download ${d.filename}`}
-                            className="doc-tree-act"
-                            style={{
-                              opacity: 1,
-                              width: "1.8rem",
-                              height: "1.8rem",
-                              border: "1px solid var(--color-line)",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <DownloadIcon size={14} />
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDoc(d)}
-                          disabled={busyDocId === d.id || !d.id}
-                          title="Delete document"
-                          aria-label={`Delete ${d.filename}`}
-                          className="doc-tree-act doc-tree-act--danger"
-                          style={{
-                            opacity: 1,
-                            width: "1.8rem",
-                            height: "1.8rem",
-                            border: "1px solid var(--color-line)",
-                          }}
-                        >
-                          {busyDocId === d.id ? (
-                            <span className="streaming-dots" style={{ padding: 0 }}>
-                              <span style={{ width: "0.3rem", height: "0.3rem" }} />
-                              <span style={{ width: "0.3rem", height: "0.3rem" }} />
-                              <span style={{ width: "0.3rem", height: "0.3rem" }} />
-                            </span>
-                          ) : (
-                            <TrashIcon size={14} />
-                          )}
-                        </button>
+                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded border border-line bg-bg text-[0.64rem] font-semibold text-muted">
+                                {i + 1}
+                              </span>
+                              {isActive ? (
+                                <span
+                                  className="streaming-dots"
+                                  style={{ padding: 0 }}
+                                  aria-hidden="true"
+                                >
+                                  <span />
+                                  <span />
+                                  <span />
+                                </span>
+                              ) : (
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{
+                                    background: dotColor,
+                                    opacity: isQueued ? 0.55 : 1,
+                                  }}
+                                />
+                              )}
+                              <span className="min-w-0 flex-1 overflow-wrap-anywhere">
+                                <span className="block font-medium text-ink">
+                                  {u.filename}
+                                </span>
+                                {sub && (
+                                  <span
+                                    className="block text-[0.76rem]"
+                                    style={{
+                                      color: failed
+                                        ? "var(--color-error)"
+                                        : "var(--color-muted)",
+                                    }}
+                                  >
+                                    {sub}
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className="shrink-0 text-[0.66rem] font-semibold uppercase tracking-[0.06em]"
+                                style={{
+                                  color: failed
+                                    ? "var(--color-error)"
+                                    : ok
+                                      ? "var(--color-ok)"
+                                      : partial
+                                        ? "var(--color-muted)"
+                                        : "var(--color-accent)",
+                                }}
+                              >
+                                {isActive
+                                  ? `${Math.round(u.progress ?? 0)}%`
+                                  : u.status}
+                              </span>
+                              {isActive && (
+                                <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-line">
+                                  <span
+                                    className="block h-full transition-[width] duration-200 ease-linear"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, u.progress ?? 0))}%`,
+                                      background: "var(--color-accent)",
+                                    }}
+                                  />
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })}
+                  )}
+                </section>
+              )}
+
+              {/* ---------- OneDrive ---------- */}
+              {activeTab === "onedrive" && (
+                <section aria-label="Import from OneDrive">
+                  {!odConnected ? (
+                    <div className="rounded-xl border border-line bg-surface px-8 py-10 text-center">
+                      <p className="text-[0.92rem] font-medium text-ink">
+                        Connect your OneDrive to import documents.
+                      </p>
+                      <p className="mx-auto mt-1 max-w-md text-[0.78rem] text-muted">
+                        Requires a Microsoft account with Files.Read.All
+                        permission.
+                      </p>
+                      <button
+                        onClick={connectOneDrive}
+                        className="button button--solid mt-5"
+                      >
+                        Connect OneDrive
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+                      <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: "var(--color-ok)" }}
+                        />
+                        <span className="text-[0.82rem] text-muted">
+                          OneDrive connected · importing into{" "}
+                          <strong className="font-medium text-ink">
+                            {activeProject.name}
+                          </strong>
+                        </span>
+                        <span className="ml-auto text-[0.72rem] tabular-nums text-muted">
+                          {odPath}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-line">
+                        {odPath !== "/" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parent =
+                                odPath.split("/").slice(0, -1).join("/") || "/";
+                              loadOdFiles(parent);
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[0.82rem] text-muted transition-colors hover:bg-neutral-50"
+                          >
+                            <span aria-hidden="true" className="text-[0.72rem]">
+                              &larr;
+                            </span>{" "}
+                            Back
+                          </button>
+                        )}
+                        {odLoading ? (
+                          <p className="px-4 py-6 text-center text-[0.82rem] text-muted">
+                            Loading…
+                          </p>
+                        ) : odFiles.length === 0 ? (
+                          <p className="px-4 py-6 text-center text-[0.82rem] text-muted">
+                            No files in this folder.
+                          </p>
+                        ) : (
+                          odFiles.map((f) => (
+                            <div
+                              key={f.id}
+                              className="group flex items-center gap-3 px-4 py-2 transition-colors hover:bg-neutral-50"
+                            >
+                              <span className="shrink-0 text-accent" style={{ lineHeight: 0 }}>
+                                {f.is_folder ? <FolderIcon size={17} /> : <FileIcon size={17} />}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  f.is_folder
+                                    ? loadOdFiles(f.path + "/" + f.name)
+                                    : handleOdImport(f)
+                                }
+                                title={
+                                  f.is_folder
+                                    ? `Open folder ${f.name}`
+                                    : `Import ${f.name} into ${activeProject.name}`
+                                }
+                                className="min-w-0 flex-1 truncate text-left text-[0.84rem] text-ink hover:underline"
+                              >
+                                {f.name}
+                              </button>
+                              {!f.is_folder && (
+                                <>
+                                  <span className="shrink-0 text-[0.7rem] tabular-nums text-muted">
+                                    {fmtBytes(f.size)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOdImport(f)}
+                                    disabled={odImportingIds.has(f.id)}
+                                    className="button button--ghost button--small shrink-0"
+                                    style={{
+                                      fontSize: "0.68rem",
+                                      padding: "0.2rem 0.6rem",
+                                      minHeight: "1.9rem",
+                                    }}
+                                  >
+                                    {odImportingIds.has(f.id)
+                                      ? "Importing…"
+                                      : "Import"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live import status */}
+                  {odImports.length > 0 && (
+                    <div className="mt-4">
+                      <h2 className="mb-1.5 text-[0.66rem] font-semibold uppercase tracking-[0.1em] text-muted">
+                        Import status
+                      </h2>
+                      <div className="space-y-2">
+                        {odImports.map((row, i) => {
+                          const isImporting = row.status === "importing";
+                          const isError = row.status === "error";
+                          const isSuccess = row.status === "success";
+                          return (
+                            <div
+                              key={`${row.fileId}-${i}`}
+                              className="flex items-center gap-3 rounded-md border px-3 py-2 text-[0.82rem]"
+                              style={{
+                                background: isImporting
+                                  ? "var(--color-accent-soft)"
+                                  : "var(--color-surface)",
+                                borderColor: isImporting
+                                  ? "var(--color-accent)"
+                                  : "var(--color-line)",
+                              }}
+                            >
+                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded border border-line bg-bg text-[0.64rem] font-semibold text-muted">
+                                {i + 1}
+                              </span>
+                              {isImporting ? (
+                                <span
+                                  className="streaming-dots"
+                                  style={{ padding: 0 }}
+                                  aria-hidden="true"
+                                >
+                                  <span />
+                                  <span />
+                                  <span />
+                                </span>
+                              ) : (
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{
+                                    background: isError
+                                      ? "var(--color-error)"
+                                      : isSuccess
+                                        ? "var(--color-ok)"
+                                        : "var(--color-muted)",
+                                  }}
+                                />
+                              )}
+                              <span className="min-w-0 flex-1 overflow-wrap-anywhere">
+                                <span className="block font-medium text-ink">
+                                  {row.filename}
+                                </span>
+                                {row.message && (
+                                  <span
+                                    className="block text-[0.76rem]"
+                                    style={{
+                                      color: isError
+                                        ? "var(--color-error)"
+                                        : "var(--color-muted)",
+                                    }}
+                                  >
+                                    {row.message}
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className="shrink-0 text-[0.66rem] font-semibold uppercase tracking-[0.06em]"
+                                style={{
+                                  color: isError
+                                    ? "var(--color-error)"
+                                    : isSuccess
+                                      ? "var(--color-ok)"
+                                      : "var(--color-accent)",
+                                }}
+                              >
+                                {row.status}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* ---------- Documents data table ---------- */}
+              <section aria-label="Documents" className="overflow-x-auto">
+                <div className="min-w-[46rem] overflow-hidden rounded-xl border border-line bg-surface">
+                  <table className="w-full text-[0.82rem]">
+                    <thead>
+                      <tr className="border-b border-line">
+                        {[
+                          { label: "Name", align: "text-left", w: "w-[46%]" },
+                          { label: "Size", align: "text-right", w: "w-[10%]" },
+                          { label: "Type", align: "text-left", w: "w-[9%]" },
+                          { label: "Ingestion", align: "text-left", w: "w-[15%]" },
+                          { label: "Actions", align: "text-right", w: "w-[20%]" },
+                        ].map((c) => (
+                          <th
+                            key={c.label}
+                            scope="col"
+                            className={`${c.align} ${c.w} px-4 py-2.5 text-[0.64rem] font-semibold uppercase tracking-[0.1em] text-muted`}
+                          >
+                            {c.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {docs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-12 text-center">
+                            <p className="text-sm font-medium text-ink">
+                              No documents in this workspace yet.
+                            </p>
+                            <p className="mt-1 text-[0.78rem] text-muted">
+                              Drop files above and they appear here once
+                              ingested.
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        docs.map((d) => {
+                          const status = statusOf(d);
+                          const type = fileExt(d.filename);
+                          const docTags = d.tags ?? [];
+                          return (
+                            <tr
+                              key={d.id ?? d.filename}
+                              className="border-t border-line transition-colors first:border-t-0 hover:bg-neutral-50"
+                            >
+                              {/* Name */}
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-2.5">
+                                  <span
+                                    className="shrink-0"
+                                    style={{ lineHeight: 0 }}
+                                  >
+                                    <FileIcon size={16} color="var(--color-muted)" />
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div
+                                      className="max-w-full truncate font-medium text-ink"
+                                      title={d.filename}
+                                    >
+                                      {d.filename}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      {d.source === "onedrive" && (
+                                        <span className="rounded bg-accent-soft px-1 py-px text-[0.6rem] font-semibold uppercase tracking-wide text-accent">
+                                          onedrive
+                                        </span>
+                                      )}
+                                      {docTags.length > 0 && (
+                                        <span className="flex items-center gap-1">
+                                          {docTags.map((t) => (
+                                            <span
+                                              key={t.id}
+                                              title={t.name}
+                                              className="h-1.5 w-1.5 rounded-full"
+                                              style={{ background: t.color }}
+                                            />
+                                          ))}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Size */}
+                              <td className="px-4 py-2.5 text-right tabular-nums text-muted">
+                                {fmtBytes(d.size)}
+                              </td>
+                              {/* Type */}
+                              <td className="px-4 py-2.5">
+                                <span className="rounded border border-line bg-bg px-1.5 py-0.5 text-[0.64rem] font-medium uppercase tracking-wide text-muted">
+                                  {type}
+                                </span>
+                              </td>
+                              {/* Ingestion */}
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="h-2 w-2 shrink-0 rounded-full"
+                                    style={{ background: status.color }}
+                                  />
+                                  <div className="leading-tight">
+                                    <div className="font-medium text-ink">
+                                      {status.label}
+                                    </div>
+                                    <div className="text-[0.66rem] text-muted">
+                                      {d.chunks} chunk{d.chunks === 1 ? "" : "s"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Actions */}
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => d.id && setAssignDoc(d)}
+                                    className="button button--ghost button--small"
+                                    style={{
+                                      fontSize: "0.68rem",
+                                      padding: "0.2rem 0.6rem",
+                                      minHeight: "1.9rem",
+                                    }}
+                                  >
+                                    Move
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReindex(d)}
+                                    disabled={busyDocId === d.id || !d.id}
+                                    title="Re-index from source file"
+                                    aria-label={`Re-index ${d.filename}`}
+                                    className={iconBtn}
+                                  >
+                                    {busyDocId === d.id ? (
+                                      <span
+                                        className="streaming-dots"
+                                        style={{ padding: 0 }}
+                                        aria-hidden="true"
+                                      >
+                                        <span style={{ width: "0.3rem", height: "0.3rem" }} />
+                                        <span style={{ width: "0.3rem", height: "0.3rem" }} />
+                                        <span style={{ width: "0.3rem", height: "0.3rem" }} />
+                                      </span>
+                                    ) : (
+                                      <RefreshIcon size={14} />
+                                    )}
+                                  </button>
+                                  {d.id && (
+                                    <a
+                                      href={documentDownloadUrl(d.id)}
+                                      title="Download original file"
+                                      aria-label={`Download ${d.filename}`}
+                                      className={`${iconBtn} border border-line bg-transparent`}
+                                    >
+                                      <DownloadIcon size={14} />
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDoc(d)}
+                                    disabled={busyDocId === d.id || !d.id}
+                                    title="Delete document"
+                                    aria-label={`Delete ${d.filename}`}
+                                    className={iconBtn}
+                                  >
+                                    <TrashIcon size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          ) : (
+            /* ---------- Unselected empty state ---------- */
+            <div className="flex min-h-full flex-col items-center justify-center px-6 py-20 text-center">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-line bg-surface text-accent">
+                <FolderIcon size={30} />
+              </div>
+              <h2 className="mt-5 max-w-md text-lg font-semibold tracking-tight text-ink">
+                Select or create a workspace to start uploading
+              </h2>
+              <p className="mt-2 max-w-md text-[0.82rem] leading-relaxed text-muted">
+                Workspaces act as isolated knowledge bases. Pick a project in
+                the sidebar, or create a new workspace to upload, tag, and
+                retrieve documents scoped to that deal or client.
+              </p>
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="button button--solid"
+                  onClick={() => {
+                    if (sidebarCollapsed) setSidebarCollapsed(false);
+                    setCreateMenuOpen(true);
+                  }}
+                >
+                  <PlusIcon size={13} />
+                  <span>New workspace</span>
+                </button>
+                {sidebarCollapsed && (
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => setSidebarCollapsed(false)}
+                  >
+                    <FolderIcon size={13} />
+                    <span>Browse workspaces</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2364,117 +1904,38 @@ export default function DocumentsPage() {
       {dragOver && (
         <div
           aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            pointerEvents: "none",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0, 0, 0, 0.05)",
-          }}
+          className="pointer-events-none fixed inset-0 z-60 flex items-center justify-center"
+          style={{ background: "rgba(0, 0, 0, 0.05)" }}
         >
-          <div
-            style={{
-              border: "2px dashed var(--color-accent)",
-              background: "var(--color-surface)",
-              borderRadius: "var(--radius-lg)",
-              padding: "1.35rem 2rem",
-              maxWidth: "26rem",
-              textAlign: "center",
-            }}
-          >
+          <div className="max-w-[26rem] rounded-xl border-2 border-dashed border-accent bg-surface px-8 py-6 text-center">
             {uploading ? (
               <>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    color: "var(--color-ink)",
-                  }}
-                >
+                <p className="m-0 text-[0.95rem] font-semibold text-ink">
                   Upload in progress
                 </p>
-                <p
-                  style={{
-                    margin: "0.3rem 0 0",
-                    fontSize: "0.8rem",
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  Drops are paused while {uploadingFile} finishes — you can add
+                <p className="mb-0 mt-1.5 text-[0.8rem] text-muted">
+                  Drops are paused while {uploadingFile} finishes. You can add
                   more files as soon as it completes.
                 </p>
               </>
-            ) : activeTab === "local" && activeProject ? (
+            ) : activeTab === "local" ? (
               <>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    color: "var(--color-ink)",
-                  }}
-                >
-                  Drop anywhere to upload into {activeNs}
+                <p className="m-0 text-[0.95rem] font-semibold text-ink">
+                  Drop anywhere to upload into {activeProject?.name}
                 </p>
-                <p
-                  style={{
-                    margin: "0.3rem 0 0",
-                    fontSize: "0.8rem",
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  Release to ingest these files into the project's isolated
+                <p className="mb-0 mt-1.5 text-[0.8rem] text-muted">
+                  Release to ingest these files into the project&apos;s isolated
                   namespace.
-                </p>
-              </>
-            ) : activeTab !== "local" ? (
-              <>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    color: "var(--color-ink)",
-                  }}
-                >
-                  Drag-to-upload works on the Local tab
-                </p>
-                <p
-                  style={{
-                    margin: "0.3rem 0 0",
-                    fontSize: "0.8rem",
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  Switch to Local above and pick a project to upload by
-                  dragging files anywhere.
                 </p>
               </>
             ) : (
               <>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    color: "var(--color-ink)",
-                  }}
-                >
-                  Select a project first
+                <p className="m-0 text-[0.95rem] font-semibold text-ink">
+                  Drag-to-upload works on the Local tab
                 </p>
-                <p
-                  style={{
-                    margin: "0.3rem 0 0",
-                    fontSize: "0.8rem",
-                    color: "var(--color-muted)",
-                  }}
-                >
-                  Uploads are project-scoped — pick a project in the sidebar,
-                  then drag files anywhere to add them.
+                <p className="mb-0 mt-1.5 text-[0.8rem] text-muted">
+                  Switch to Local above and pick a project to upload by dragging
+                  files anywhere.
                 </p>
               </>
             )}
@@ -2490,33 +1951,27 @@ export default function DocumentsPage() {
           aria-labelledby="assign-title"
           ref={assignRef}
           tabIndex={-1}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            outline: "none",
-          }}
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/30"
+          style={{ outline: "none" }}
           onClick={() => setAssignDoc(null)}
         >
           <div
-            className="panel-card"
-            style={{ width: "26rem", padding: "1.5rem" }}
+            className="panel-card w-[26rem] p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="assign-title" style={{ fontSize: "1rem", fontWeight: 500, margin: "0 0 0.25rem" }}>
+            <h3
+              id="assign-title"
+              className="m-0 text-[1rem] font-medium text-ink"
+            >
               Move document to another project
             </h3>
-            <p style={{ fontSize: "0.76rem", color: "var(--color-muted)", margin: "0 0 1rem" }}>
-              {assignDoc.filename} — moving changes its isolated RAG namespace.
+            <p className="mb-4 mt-1 text-[0.76rem] text-muted">
+              {assignDoc.filename}. Moving changes its isolated RAG namespace.
             </p>
 
             <label
               htmlFor="assign-project"
-              style={{ fontSize: "0.78rem", color: "var(--color-muted)", display: "block", marginBottom: "0.3rem" }}
+              className="mb-1 block text-[0.78rem] text-muted"
             >
               Destination project
             </label>
@@ -2528,8 +1983,7 @@ export default function DocumentsPage() {
                   e.target.value ? Number(e.target.value) : "",
                 )
               }
-              className="select"
-              style={{ width: "100%", marginBottom: "0.75rem" }}
+              className="select mb-3 w-full"
             >
               <option value="">Keep current project</option>
               {clients.map((c) => {
@@ -2546,7 +2000,7 @@ export default function DocumentsPage() {
                 );
               })}
               {unassigned.length > 0 && (
-                <optgroup label="No client">
+                <optgroup label="Standalone">
                   {unassigned.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} · {namespaceLabel(null, p.name)}
@@ -2556,11 +2010,19 @@ export default function DocumentsPage() {
               )}
             </select>
 
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-              <button onClick={() => setAssignDoc(null)} className="button button--ghost button--small">
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAssignDoc(null)}
+                className="button button--ghost button--small"
+              >
                 Cancel
               </button>
-              <button onClick={() => handleAssign(assignDoc)} className="button button--solid button--small">
+              <button
+                type="button"
+                onClick={() => handleAssign(assignDoc)}
+                className="button button--solid button--small"
+              >
                 Save
               </button>
             </div>

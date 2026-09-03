@@ -24,7 +24,7 @@ export default function Header() {
           <Link
             href="/"
             className="flex items-center gap-3 shrink-0 -ml-2"
-            aria-label="Jonathan Simpson & Co. — home"
+            aria-label="Jonathan Simpson and Co., home"
           >
             <img
               src="/jsco-logo.png"
@@ -37,25 +37,34 @@ export default function Header() {
             <span className="text-sm font-semibold tracking-tight whitespace-nowrap hidden sm:inline" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Jonathan Simpson & Co.</span>
           </Link>
           <nav
-            className="main-nav flex items-center gap-1 overflow-x-auto"
+            className="main-nav flex items-stretch self-stretch gap-0.5 overflow-x-auto"
             role="navigation"
             aria-label="Main"
             style={{ minWidth: 0 }}
           >
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "px-3 py-1.5 whitespace-nowrap text-xs uppercase tracking-wider rounded-full transition-colors shrink-0",
-                  pathname === item.href
-                    ? "bg-accent text-white"
-                    : "text-muted hover:text-ink hover:bg-accent-soft",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative inline-flex items-center px-3.5 whitespace-nowrap text-xs uppercase tracking-wider transition-colors shrink-0",
+                    active ? "text-ink" : "text-muted hover:text-accent",
+                  )}
+                >
+                  {item.label}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute inset-x-2.5 bottom-0 h-0.5",
+                      active ? "bg-accent" : "bg-transparent",
+                    )}
+                  />
+                </Link>
+              );
+            })}
           </nav>
           <KeySettings />
         </div>

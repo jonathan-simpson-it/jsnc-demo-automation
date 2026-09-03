@@ -224,9 +224,9 @@ class SummaryGenerator:
         since_str = since.strftime("%B %d, %Y")
 
         lines = [
-            f"# PE AI System — {period_label} Summary",
+            f"# PE AI System: {period_label} Summary",
             f"",
-            f"**Report Period:** {since_str} – {now}",
+            f"**Report Period:** {since_str} to {now}",
             f"**Generated:** {now}",
             f"",
             f"---",
@@ -274,9 +274,9 @@ class SummaryGenerator:
             ])
             for i, q in enumerate(top_queries, 1):
                 ts = q["timestamp"][:16].replace("T", " ")
-                conf = f"{q['confidence']:.0%}" if q["confidence"] else "—"
+                conf = f"{q['confidence']:.0%}" if q["confidence"] else "n/a"
                 lines.append(f"{i}. **{q['query']}**")
-                lines.append(f"   — _{q['agent']}_ | {conf} confidence | {ts}")
+                lines.append(f"   · _{q['agent']}_ | {conf} confidence | {ts}")
                 lines.append("")
 
         # Footer

@@ -84,7 +84,7 @@ export default function TelemetryPage() {
   const avgCost =
     cost && cost.calls > 0
       ? `$${(cost.total_cost / cost.calls).toFixed(4)}`
-      : "—";
+      : "n/a";
   const sortedRuns = [...runs].sort((a, b) => b.ts - a.ts);
 
   return (
@@ -95,8 +95,7 @@ export default function TelemetryPage() {
           <h1
             style={{
               fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
-              fontFamily: "var(--font-display)",
-              fontWeight: 400,
+                            fontWeight: 600,
               lineHeight: 1.15,
               letterSpacing: "-0.01em",
               marginBottom: "1rem",
@@ -164,7 +163,7 @@ export default function TelemetryPage() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {cost ? `$${cost.total_cost.toFixed(4)}` : "—"}
+              {cost ? `$${cost.total_cost.toFixed(4)}` : "n/a"}
             </div>
             <div
               style={{
@@ -201,7 +200,7 @@ export default function TelemetryPage() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {cost ? cost.calls.toLocaleString("en-US") : "—"}
+              {cost ? cost.calls.toLocaleString("en-US") : "n/a"}
             </div>
             <div
               style={{
@@ -238,7 +237,7 @@ export default function TelemetryPage() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {cost ? totalTokens.toLocaleString("en-US") : "—"}
+              {cost ? totalTokens.toLocaleString("en-US") : "n/a"}
             </div>
             <div
               style={{
@@ -374,7 +373,7 @@ export default function TelemetryPage() {
               fontSize: "0.88rem",
             }}
           >
-            No pipeline runs yet — send a message in the chat to see traces here.
+            No pipeline runs yet. Send a message in the chat to see traces here.
           </p>
         ) : (
           <div className="space-y-2">

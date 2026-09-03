@@ -144,9 +144,7 @@ export default function LpReportWorkbenchPage() {
           {typeof report.quarter === "string" && report.quarter.trim() !== "" && (
             <h2
               style={{
-                margin: 0,
-                fontFamily: "var(--font-display)",
-                fontSize: "clamp(1.2rem, 2.5vw, 1.6rem)",
+                margin: 0,                fontSize: "clamp(1.2rem, 2.5vw, 1.6rem)",
                 fontWeight: 400,
                 lineHeight: 1.2,
                 letterSpacing: "-0.01em",

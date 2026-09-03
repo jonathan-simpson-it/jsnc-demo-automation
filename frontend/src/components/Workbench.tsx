@@ -36,9 +36,7 @@ export function WorkbenchPage({
       <div className="container" style={{ maxWidth: "56rem" }}>
         <span className="section-eyebrow">{eyebrow}</span>
         <h1
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
+          style={{            fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
             fontWeight: 400,
             lineHeight: 1.15,
             letterSpacing: "-0.01em",
@@ -143,7 +141,7 @@ export function DocumentPicker({
       setSelected(match ? docKey(match) : "");
       onSelect(match);
     } catch {
-      setUploadError("Upload failed — please try again.");
+      setUploadError("Upload failed. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -234,7 +232,7 @@ export function DocumentPicker({
       )}
       {docs.length === 0 && !busy && (
         <div style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>
-          No documents yet — upload one to get started.
+          No documents yet. Upload one to get started.
         </div>
       )}
     </div>

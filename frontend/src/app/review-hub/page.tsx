@@ -20,7 +20,7 @@ function reasonLabel(reason: string): string {
 }
 
 function formatConfidence(confidence: number | null): string {
-  return confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
+  return confidence == null ? "n/a" : `${Math.round(confidence * 100)}%`;
 }
 
 export default function ReviewHubPage() {
@@ -110,8 +110,7 @@ export default function ReviewHubPage() {
           <h1
             style={{
               fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
-              fontFamily: "var(--font-display)",
-              fontWeight: 400,
+                            fontWeight: 600,
               lineHeight: 1.15,
               letterSpacing: "-0.01em",
               marginBottom: "1rem",
@@ -120,8 +119,9 @@ export default function ReviewHubPage() {
             Review queue.
           </h1>
           <p>
-            Low-confidence or verification-failed answers — and, when enabled,
-            every answer — wait here for human review before delivery.
+            Low-confidence or verification-failed answers wait here for human
+            review before delivery. When enabled, every answer passes through
+            this queue.
           </p>
           <div
             className="flex items-center gap-3"
@@ -294,7 +294,7 @@ export default function ReviewHubPage() {
                           <li key={i} style={{ display: "flex", gap: "0.5rem" }}>
                             <span style={{ flex: 1 }}>{t.node}</span>
                             <span style={{ flexShrink: 0 }}>
-                              — {formatMs(t.ms)}
+                              · {formatMs(t.ms)}
                             </span>
                           </li>
                         ))}

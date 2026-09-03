@@ -12,12 +12,12 @@ export default function PitchBand() {
       }}
     >
       <p className="section-eyebrow" style={{ marginBottom: "0.5rem" }}>Built by Jonathan Simpson &amp; Co.</p>
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "clamp(1.3rem, 3vw, 1.8rem)", letterSpacing: "-0.01em", color: "var(--color-ink)", margin: "0 0 0.6rem" }}>
+      <h2 style={{ fontSize: "clamp(1.15rem, 2.5vw, 1.5rem)", fontWeight: 600, letterSpacing: "-0.01em", color: "var(--color-ink)", margin: "0 0 0.6rem" }}>
         This platform can be built for your firm.
       </h2>
       <p style={{ color: "var(--color-muted)", fontSize: "0.92rem", maxWidth: "34rem", margin: "0 auto 1.4rem", lineHeight: 1.6 }}>
         We design, build, and deploy bespoke AI systems for regulated financial
-        firms — grounded answers, human-in-the-loop review, and audit-ready
+        firms: grounded answers, human-in-the-loop review, and audit-ready
         trails, engineered around your documents and your regulators.
       </p>
       <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>

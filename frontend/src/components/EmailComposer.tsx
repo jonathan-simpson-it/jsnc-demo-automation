@@ -64,10 +64,10 @@ export default function EmailComposer({
       setBody(draft.body);
       setNote(
         draft.generated_by === "ai"
-          ? { ok: true, text: "AI draft generated — review and save it." }
+          ? { ok: true, text: "AI draft generated. Review and save it." }
           : {
               ok: true,
-              text: "Template draft generated — add an API key to enable AI refinement.",
+              text: "Template draft generated. Add an API key to enable AI refinement.",
             },
       );
       setTab("preview");
@@ -93,7 +93,7 @@ export default function EmailComposer({
       const res = await createGraphDraft(subject, body, to);
       setNote({
         ok: true,
-        text: `Draft saved${demo ? " (demo — stored locally)" : res.draft_link ? " — open it in Outlook to review" : ""}.`,
+        text: `Draft saved${demo ? " (demo, stored locally)" : res.draft_link ? ", open it in Outlook to review" : ""}.`,
       });
       onSaved?.({ subject, demo });
     } catch (e) {
@@ -145,7 +145,7 @@ export default function EmailComposer({
             key={t.key}
             type="button"
             onClick={() => setTemplate(t.key)}
-            style={{ ...chipStyle(template === t.key), fontSize: "0.72rem", padding: "0.3rem 0.7rem", borderRadius: "999px", cursor: "pointer" }}
+            style={{ ...chipStyle(template === t.key), fontSize: "0.72rem", padding: "0.3rem 0.7rem", borderRadius: "var(--radius-md)", cursor: "pointer" }}
             disabled={!mailActive || busy}
           >
             {t.label}
@@ -158,7 +158,7 @@ export default function EmailComposer({
             key={t.key}
             type="button"
             onClick={() => setTone(t.key)}
-            style={{ ...chipStyle(tone === t.key), fontSize: "0.72rem", padding: "0.3rem 0.7rem", borderRadius: "999px", cursor: "pointer" }}
+            style={{ ...chipStyle(tone === t.key), fontSize: "0.72rem", padding: "0.3rem 0.7rem", borderRadius: "var(--radius-md)", cursor: "pointer" }}
             disabled={!mailActive || busy}
           >
             {t.label}
@@ -216,7 +216,7 @@ export default function EmailComposer({
             <EmailPreview text={body} />
           ) : (
             <p style={{ color: "var(--color-muted)", fontSize: "0.85rem" }}>
-              Nothing to preview yet — draft with AI first.
+              Nothing to preview yet. Draft with AI first.
             </p>
           )}
         </div>
@@ -245,7 +245,7 @@ export default function EmailComposer({
       )}
       {demo && (
         <p style={{ margin: "0.6rem 0 0", fontSize: "0.76rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
-          Demo mode — drafts are stored locally until Graph mail is configured
+          Demo mode: drafts are stored locally until Graph mail is configured
           in .env.
         </p>
       )}

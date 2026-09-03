@@ -39,13 +39,13 @@ export default function ChatMessage({
             display: "grid",
             justifyItems: "end",
             gap: "0.28rem",
-            maxWidth: "min(80%, 70rem)",
+            maxWidth: "min(78%, 60rem)",
           }}
         >
           <div
             style={{
-              padding: "0.7rem 1.05rem",
-              borderRadius: "1.25rem 1.25rem 0.4rem 1.25rem",
+              padding: "0.65rem 1rem",
+              borderRadius: "var(--radius-md)",
               background: "var(--color-accent)",
               color: "white",
               fontSize: "0.92rem",
@@ -70,8 +70,8 @@ export default function ChatMessage({
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-line)",
-        borderRadius: "1.25rem 1.25rem 1.25rem 0.4rem",
-        padding: "0.85rem 1.1rem",
+        borderRadius: "var(--radius-md)",
+        padding: "0.9rem 1.1rem",
         maxWidth: "100%",
         fontSize: "0.92rem",
         lineHeight: 1.65,
@@ -109,10 +109,10 @@ export default function ChatMessage({
                 fontWeight: 500,
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
-                color: "var(--color-accent)",
+                color: "var(--color-muted)",
                 border: "1px solid var(--color-line)",
-                borderRadius: "999px",
-                padding: "0.08rem 0.55rem",
+                borderRadius: "var(--radius-xs)",
+                padding: "0.08rem 0.5rem",
                 background: "var(--color-bg)",
                 whiteSpace: "nowrap",
               }}

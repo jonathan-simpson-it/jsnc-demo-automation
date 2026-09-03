@@ -8,7 +8,7 @@ import { ApiKeyProvider } from "@/components/ApiKeyProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Jonathan Simpson & Co. -- AI Platform",
+  title: "Jonathan Simpson & Co. | Private Markets AI Platform",
   description:
     "AI-powered Private Equity workflow automation with RAG and multi-agent systems",
 };

@@ -52,7 +52,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const setKey = useCallback(
     (next: string) => {
       saveApiKey(next);
-      showToast("API key saved — stored only in this browser, never on our servers.");
+      showToast("API key saved. Stored only in this browser, never on our servers.");
     },
     [showToast],
   );

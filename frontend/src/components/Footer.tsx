@@ -1,13 +1,12 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export default function Footer() {
   const pathname = usePathname();
-  // App-shell tool pages are full-height dashboards; a marketing footer
-  // would push their content out of the working viewport.
-  if (pathname?.startsWith("/chat") || pathname === "/config") return null;
+  // The documents page is a full-height workspace shell; the marketing footer
+  // is hidden there so the canvas owns the entire vertical viewport.
+  if (pathname?.startsWith("/documents")) return null;
   return (
     <footer className="site-footer border-t border-line mt-auto">
       <div className="container footer-inner">
@@ -51,6 +50,9 @@ export default function Footer() {
             </li>
             <li>
               <Link href="/eval">Eval Dashboard</Link>
+            </li>
+            <li>
+              <Link href="/mailbox">Mailbox</Link>
             </li>
           </ul>
         </div>

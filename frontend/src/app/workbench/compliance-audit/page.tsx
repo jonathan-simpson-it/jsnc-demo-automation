@@ -132,7 +132,7 @@ export default function ComplianceAuditWorkbenchPage() {
       title="Compliance auditor."
       description={
         <>
-          Audit documents against the expectations your regulators actually publish — SFC, HKMA and AMLO-aware checks, grounded in this workspace's documents, with cited findings and required corrective actions.
+          Audit documents against the expectations your regulators actually publish: SFC, HKMA and AMLO-aware checks, grounded in this workspace's documents, with cited findings and required corrective actions.
           <span
             style={{
               display: "flex",
@@ -200,9 +200,7 @@ export default function ComplianceAuditWorkbenchPage() {
           >
             <h2
               style={{
-                margin: 0,
-                fontFamily: "var(--font-display)",
-                fontSize: "0.95rem",
+                margin: 0,                fontSize: "0.95rem",
                 fontWeight: 600,
                 letterSpacing: "0.01em",
               }}
@@ -216,7 +214,7 @@ export default function ComplianceAuditWorkbenchPage() {
                   fontSize: "0.7rem",
                   background: "var(--color-accent-soft)",
                   border: "1px solid var(--color-line)",
-                  borderRadius: "999px",
+                  borderRadius: "var(--radius-md)",
                   padding: "0.2rem 0.6rem",
                 }}
               >
@@ -237,14 +235,12 @@ export default function ComplianceAuditWorkbenchPage() {
             >
               <span
                 style={{
-                  display: "inline-block",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "0.78rem",
+                  display: "inline-block",                  fontSize: "0.78rem",
                   fontWeight: 700,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   padding: "0.3rem 0.8rem",
-                  borderRadius: "999px",
+                  borderRadius: "var(--radius-md)",
                   border: compliant
                     ? "1px solid var(--color-accent)"
                     : "1px solid var(--color-error)",
@@ -313,7 +309,7 @@ export default function ComplianceAuditWorkbenchPage() {
                             letterSpacing: "0.08em",
                             textTransform: "uppercase",
                             padding: "0.12rem 0.45rem",
-                            borderRadius: "999px",
+                            borderRadius: "var(--radius-md)",
                             border: "1px solid var(--color-line)",
                             color: "var(--color-muted)",
                             verticalAlign: "middle",

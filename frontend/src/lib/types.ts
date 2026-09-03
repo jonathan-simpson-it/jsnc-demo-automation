@@ -111,6 +111,7 @@ export interface DocumentInfo {
   project_name?: string | null;
   source?: string;
   created_at?: string | null;
+  size?: number | null;
   tags?: Tag[];
 }
 

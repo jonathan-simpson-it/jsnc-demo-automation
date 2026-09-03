@@ -73,7 +73,7 @@ export default function StructuredOutput({ text }: Props) {
   try {
     parsed = JSON.parse(text);
   } catch {
-    /* not JSON — plain text below */
+    /* not JSON; plain text below */
   }
 
   const isRecord =

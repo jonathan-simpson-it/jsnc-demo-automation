@@ -154,7 +154,7 @@ class AuditLog:
         history = self.query_history(limit=1000)
         lines = [
             "=" * 60,
-            "PE AI SYSTEM — AUDIT TRAIL EXPORT",
+            "PE AI SYSTEM: AUDIT TRAIL EXPORT",
             f"Generated: {datetime.now(timezone.utc).isoformat()}",
             f"Total entries: {len(history)}",
             "=" * 60,

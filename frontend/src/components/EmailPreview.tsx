@@ -31,11 +31,11 @@ function renderInline(raw: string, keyBase = "x"): ReactNode[] {
   return nodes.length ? nodes : [renderItalic(raw, `${keyBase}o`)];
 }
 
-/** Meta continuation lines ("— _agent_ | 91% confidence | ts"). */
+/** Meta continuation lines ("· _agent_ | 91% confidence | ts"). */
 function renderMeta(raw: string): ReactNode {
   const cleaned = raw
     .trim()
-    .replace(/^—\s*/, "")
+    .replace(/^·\s*/, "")
     .replace(/\s*\|\s*/g, " · ")
     .replace(/_([A-Za-z0-9_-]+)_/g, "$1")
     .replace(/_/g, " ");
@@ -101,7 +101,7 @@ export default function EmailPreview({ text, caption }: Props) {
     }
     if (line.startsWith("# ")) {
       blocks.push(
-        <h1 key={`h1${key++}`} style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "1.35rem", margin: "0.25rem 0 0.35rem" }}>
+        <h1 key={`h1${key++}`} style={{ fontSize: "1.15rem", fontWeight: 600, letterSpacing: "-0.01em", margin: "0.25rem 0 0.35rem" }}>
           {renderInline(line.slice(2))}
         </h1>,
       );
@@ -171,14 +171,14 @@ export default function EmailPreview({ text, caption }: Props) {
           ordered.push(
             <li key={`li${key++}`} style={{ marginBottom: "0.3rem" }}>
               {renderInline((nm ? nm[2] : bm![1]))}
-              {i + 1 < lines.length && /^\s{2,}—/.test(lines[i + 1]) ? (
+              {i + 1 < lines.length && /^\s{2,}·/.test(lines[i + 1]) ? (
                 <div style={{ color: "var(--color-muted)", fontSize: "0.78rem", marginTop: "0.1rem" }}>
                   {renderMeta(lines[i + 1])}
                 </div>
               ) : null}
             </li>,
           );
-          if (i + 1 < lines.length && /^\s{2,}—/.test(lines[i + 1])) i++;
+          if (i + 1 < lines.length && /^\s{2,}·/.test(lines[i + 1])) i++;
         } else if (cur.trim()) {
           ordered.push(
             <li key={`li${key++}`} style={{ marginBottom: "0.3rem", color: "var(--color-muted)", fontSize: "0.82rem" }}>

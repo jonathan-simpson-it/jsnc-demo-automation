@@ -77,7 +77,7 @@ export default function SummaryPage() {
             }}
           >
             Draft platform reports with AI, review and edit them, then save to
-            your Outlook Drafts via the Microsoft Graph API — nothing is sent
+            your Outlook Drafts via the Microsoft Graph API. Nothing is sent
             until you send it.
           </p>
         </div>

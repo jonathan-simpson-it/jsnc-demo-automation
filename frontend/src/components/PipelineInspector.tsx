@@ -25,8 +25,8 @@ export default function PipelineInspector({
     confidence >= 0.8
       ? "High confidence"
       : confidence >= 0.5
-        ? "Moderate -- verify key facts"
-        : "Low -- treat with caution";
+        ? "Moderate; verify key facts"
+        : "Low; treat with caution";
 
   return (
     <div
@@ -87,7 +87,7 @@ export default function PipelineInspector({
               style={{
                 height: "0.5rem",
                 background: "var(--color-accent-soft)",
-                borderRadius: "999px",
+                borderRadius: "0.125rem",
                 overflow: "hidden",
               }}
             >
@@ -95,7 +95,7 @@ export default function PipelineInspector({
                 style={{
                   height: "100%",
                   background: "var(--color-accent)",
-                  borderRadius: "999px",
+                  borderRadius: "0.125rem",
                   width: `${confidence * 100}%`,
                   transition: "width 300ms ease",
                 }}
@@ -166,14 +166,14 @@ export default function PipelineInspector({
                       flex: 1,
                       height: "0.5rem",
                       background: "var(--color-accent-soft)",
-                      borderRadius: "999px",
+                      borderRadius: "0.125rem",
                       overflow: "hidden",
                     }}
                   >
                     <div
                       style={{
                         height: "100%",
-                        borderRadius: "999px",
+                        borderRadius: "0.125rem",
                         width: `${pct}%`,
                         backgroundColor:
                           e.node === summary.bottleneck && trace.length > 1

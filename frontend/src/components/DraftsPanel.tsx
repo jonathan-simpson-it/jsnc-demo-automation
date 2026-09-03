@@ -37,7 +37,7 @@ export default function DraftsPanel({ drafts, demo }: Props) {
       </div>
       {drafts.length === 0 ? (
         <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-muted)" }}>
-          No drafts saved yet — compose one on the left.
+          No drafts saved yet. Compose one on the left.
         </p>
       ) : (
         <ul

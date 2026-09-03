@@ -12,8 +12,8 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
       <div style={{ width: "min(22rem, calc(100vw - 3rem))" }}>
         <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
           Your API key is stored <strong>only in this browser</strong>{" "}
-          (localStorage) and is sent with your requests — never saved on our
-          servers.
+          (localStorage) and is sent with your requests. It is never saved on
+          our servers.
         </p>
         <p style={{ fontSize: "0.82rem" }}>
           Active key: <code>{key.slice(0, 4)}••••••••{key.slice(-4)}</code>
@@ -44,7 +44,7 @@ export function KeyForm({ onDone }: { onDone?: () => void }) {
     <div style={{ width: "min(22rem, calc(100vw - 3rem))" }}>
       <p style={{ fontSize: "0.8rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
         Bring your own API key. It is stored <strong>only in this browser</strong>{" "}
-        (localStorage) and sent with your requests — never saved on our servers.
+        (localStorage) and sent with your requests. It is never saved on our servers.
       </p>
       <label
         htmlFor="api-key-input"
@@ -160,7 +160,7 @@ export function KeyPrompt({ onConfigure }: { onConfigure: () => void }) {
     >
       <strong>Add your API key to start asking questions.</strong>{" "}
       <span style={{ color: "var(--color-muted)" }}>
-        This platform keeps no server-side key — yours stays in your browser.
+        This platform keeps no server-side key. Yours stays in your browser.
       </span>{" "}
       <button type="button" className="button button--small" onClick={onConfigure}>
         Set up key

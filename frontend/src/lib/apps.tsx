@@ -33,7 +33,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "AI Chat",
     category: "Applications",
     description:
-      "Grounded answers across your workspace — every one cited, with pipeline transparency and saved history.",
+      "Grounded, cited answers across your workspace, with pipeline transparency and saved history.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 6h20v14H14l-6 5v-5H6z" />
@@ -48,7 +48,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Documents",
     category: "Applications",
     description:
-      "Upload, tag, and assign documents to clients and projects — the knowledge base behind every answer.",
+      "Upload, tag, and assign documents to clients and projects. This is the knowledge base behind every answer.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10 3h9l6 6v18a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
@@ -77,7 +77,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
   },
   {
     key: "email",
-    href: "/summary",
+    href: "/mailbox",
     name: "Email Reports",
     category: "Applications",
     description:
@@ -95,7 +95,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "System Config",
     category: "Applications",
     description:
-      "System status, active features, and registered agent types — full observability.",
+      "System status, active features, and registered agent types. Full observability.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="16" cy="16" r="3" />
@@ -157,7 +157,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Compliance Checker",
     category: "Specialist Agents",
     description:
-      "Regulatory compliance checks grounded in the knowledge base — SFC, HKMA and AMLO-aware.",
+      "Regulatory compliance checks grounded in the knowledge base: SFC, HKMA and AMLO-aware.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M16 3 L28 9 L28 17 C28 23 22 28 16 30 C10 28 4 23 4 17 L4 9 Z" />
@@ -171,7 +171,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Cross-Document Comparison",
     category: "Specialist Agents",
     description:
-      "Compare and synthesise across documents — find the differences that change a deal.",
+      "Compare and synthesise across documents to find the differences that change a deal.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="6" width="12" height="16" rx="2" />
@@ -237,7 +237,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Review Hub",
     category: "Compliance & Risk",
     description:
-      "Approve, edit, or reject AI answers before anything is delivered — humans in the loop.",
+      "Approve, edit, or reject AI answers before anything is delivered. Humans stay in the loop.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 26h20" />
@@ -279,7 +279,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Regulatory Radar",
     category: "Compliance & Risk",
     description:
-      "Live SFC and HKMA circulars with recency-weighted retrieval — grounded in today's guidance.",
+      "Live SFC and HKMA circulars with recency-weighted retrieval, grounded in today's guidance.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="16" cy="16" r="12" />

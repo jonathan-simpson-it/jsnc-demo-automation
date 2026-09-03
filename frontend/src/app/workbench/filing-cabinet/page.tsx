@@ -358,7 +358,7 @@ export default function FilingCabinetPage() {
                   }}
                 >
                   {" "}
-                  —{" "}
+                  ·{" "}
                   {u.status === "uploading"
                     ? "Uploading…"
                     : u.message || (u.status === "success" ? "Ingested" : "Failed")}

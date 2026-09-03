@@ -153,9 +153,7 @@ export default function TermSheetWorkbenchPage() {
         >
           <h2
             style={{
-              margin: "0 0 0.9rem 0",
-              fontFamily: "var(--font-display)",
-              fontSize: "0.95rem",
+              margin: "0 0 0.9rem 0",              fontSize: "0.95rem",
               fontWeight: 600,
               letterSpacing: "0.01em",
             }}

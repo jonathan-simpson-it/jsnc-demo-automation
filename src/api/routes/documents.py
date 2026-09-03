@@ -13,6 +13,28 @@ from src.ingestion.loader import load_documents
 UPLOAD_DIR = Path("data/uploads")
 
 
+def _file_sizes() -> dict[str, int]:
+    """Best-effort filename -> byte size map for the documents list.
+
+    Uploaded files live in ``data/uploads``; demo/sample files live (possibly
+    nested) under ``data/sample``. Missing files simply stay out of the map so
+    the UI can render an empty size cell.
+    """
+    sizes: dict[str, int] = {}
+
+    def scan(root: Path, recursive: bool) -> None:
+        if not root.exists() or not root.is_dir():
+            return
+        it = root.rglob("*") if recursive else root.glob("*")
+        for p in it:
+            if p.is_file():
+                sizes.setdefault(p.name, p.stat().st_size)
+
+    scan(UPLOAD_DIR, recursive=False)
+    scan(Path("data/sample"), recursive=True)
+    return sizes
+
+
 def _ingest_file(file_path: Path, filename: str) -> tuple[int, str]:
     """Load, chunk, and index a local file into the vector store.
 
@@ -272,8 +294,10 @@ async def list_documents(
 
         # Fetch tags for each document
         documents = []
+        sizes = _file_sizes()
         for r in rows:
             doc = dict(r)
+            doc["size"] = sizes.get(doc["filename"])
             tag_rows = db.execute(
                 """SELECT t.id, t.name, t.color
                    FROM tags t
