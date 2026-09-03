@@ -25,8 +25,8 @@ export const siteConfig = {
     { title: "Deploy & Iterate", description: "CI/CD pipelines, monitoring, training. We don't hand off and disappear.", tags: ["DevOps", "Training", "Support"] },
   ],
   capabilities: [
-    { title: "Private Equity Workflow Automation", description: "Term sheet analysis, covenant monitoring, LP reporting.", tags: ["RAG", "Multi-Agent", "LangGraph"] },
-    { title: "Regulatory Compliance Systems", description: "HKMA, SFC, AMLO compliance built into your tools.", tags: ["Audit", "RBAC", "Redaction"] },
+    { title: "Private Equity Workflow Automation", description: "Term-sheet analysis, covenant monitoring, LP reporting — retrieval-grounded AI that your team actually trusts.", tags: ["RAG", "Multi-Agent", "Grounded Answers"] },
+    { title: "Regulatory Compliance Systems", description: "SFC, HKMA and AMLO-aware compliance built into your tools — with audit trails, explainability exports, and human review.", tags: ["Audit", "Explainability", "Human Review"] },
     { title: "Financial Operations Platforms", description: "Cash flow forecasting, multi-currency handling, document management.", tags: ["Forecasting", "Multi-Currency", "Documents"] },
     { title: "Data Engineering & Analytics", description: "From raw data to decision-ready dashboards.", tags: ["Pipelines", "Warehousing", "Dashboards"] },
   ],
