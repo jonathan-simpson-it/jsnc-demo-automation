@@ -328,11 +328,13 @@ function ChatInner() {
   }, []);
 
   // Auto-scroll rule: the conversation follows only while the user is pinned
-  // to the bottom (within 8px). Entering a question never scrolls on its own:
-  // the submit moment (stream starting) is skipped, and content that arrives
-  // while a stream is already running or just finished only scrolls when the
-  // user is still at the bottom, so reading history above is never yanked.
-  // Opening a conversation or starting a new chat jumps instantly to the end.
+  // to the bottom (within 8px), and only for actual content changes — never
+  // for the act of sending. Pressing Enter does not move the view at all
+  // (the submit moment is skipped), and pipeline node events (header labels
+  // like "Classifying query") do not trigger scrolling either. When the
+  // final answer lands the view follows once — but only if the user is still
+  // at the bottom, so reading history above is never yanked. Opening a
+  // conversation or starting a new chat jumps instantly to the end.
   useEffect(() => {
     const el = convScrollRef.current;
     if (!el) return;
@@ -356,11 +358,14 @@ function ChatInner() {
     }
     const wasStreaming = prevStreamingRef.current;
     prevStreamingRef.current = isStreaming;
+    // Submit moment (stream just started): never scroll.
     if (isStreaming && !wasStreaming) return;
+    // Idle message changes (e.g. history reconcile): no scrolling either.
+    if (!isStreaming && !wasStreaming) return;
     if (stickBottomRef.current) {
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
-  }, [messages, isStreaming, streamingNode]);
+  }, [messages, isStreaming]);
 
   const { hasKey, serverKeyConfigured } = useApiKey();
   const showKeyPrompt = !hasKey && !serverKeyConfigured;
