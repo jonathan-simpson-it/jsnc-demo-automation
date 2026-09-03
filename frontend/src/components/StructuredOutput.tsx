@@ -10,6 +10,32 @@ function humanLabel(key: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : words;
 }
 
+const BOLD_RE = /\*\*(.+?)\*\*/g;
+
+/**
+ * Renders model text with lightweight inline formatting: `**bold**` becomes
+ * <strong>, everything else stays plain text (React escapes, so this is safe).
+ * Unmatched asterisks are left untouched rather than dropped.
+ */
+function renderInline(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const re = new RegExp(BOLD_RE.source, "g");
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <strong key={`b${key++}`} style={{ fontWeight: 600 }}>
+        {m[1]}
+      </strong>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes.length > 0 ? nodes : [text];
+}
+
 function scalarText(value: string | number | boolean): string {
   return typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString("en-US")
@@ -22,6 +48,7 @@ const scalarStyle: CSSProperties = {
   lineHeight: 1.6,
   color: "var(--color-ink)",
   overflowWrap: "anywhere",
+  whiteSpace: "pre-wrap",
 };
 
 const rowLabelStyle: CSSProperties = {
@@ -64,7 +91,7 @@ export default function StructuredOutput({ text }: Props) {
   const renderValue = (value: unknown, depth: number): ReactNode | null => {
     if (value === null || value === undefined) return null;
     if (typeof value === "string") {
-      return value.trim() === "" ? null : <p style={scalarStyle}>{value}</p>;
+      return value.trim() === "" ? null : <p style={scalarStyle}>{renderInline(value)}</p>;
     }
     if (typeof value === "number" || typeof value === "boolean") {
       return <p style={scalarStyle}>{scalarText(value)}</p>;
@@ -101,7 +128,7 @@ export default function StructuredOutput({ text }: Props) {
           >
             {items.map((item, i) => (
               <li key={i} style={{ overflowWrap: "anywhere" }}>
-                {scalarText(item as string | number | boolean)}
+                {renderInline(scalarText(item as string | number | boolean))}
               </li>
             ))}
           </ul>
