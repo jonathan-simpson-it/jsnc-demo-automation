@@ -4,6 +4,7 @@ import { fetchHealth } from "@/lib/api";
 import type { HealthStatus } from "@/lib/types";
 import { appsByCategory } from "@/lib/apps";
 import { LaunchpadSection } from "@/components/Launchpad";
+import PitchBand from "@/components/PitchBand";
 
 export default function Home() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -26,6 +27,8 @@ export default function Home() {
       <div className="container" style={{ maxWidth: "56rem" }}>
         {/* Logo + Title */}
         <div style={{ textAlign: "center", marginBottom: "clamp(2.5rem, 5vw, 3.5rem)" }}>
+          <img src="/jsco-logo.png" alt="" width={72} height={72} style={{ borderRadius: "50%", objectFit: "cover", marginBottom: "1rem" }} />
+          <p className="section-eyebrow" style={{ marginBottom: "0.6rem" }}>Live demo — AI for private markets</p>
           <h1
             style={{
               fontFamily: "var(--font-display)",
@@ -47,8 +50,11 @@ export default function Home() {
               lineHeight: 1.6,
             }}
           >
-            AI-powered Private Equity workflow automation. Open an application
-            to get started, or jump straight to a specialist agent.
+            Private-equity intelligence with the guardrails your firm needs:
+            every answer grounded in your documents and cited, every change
+            reviewable, every action on the record. This live demo runs the
+            real system — built by Jonathan Simpson &amp; Co. for firms that move
+            money.
           </p>
 
           {/* Status */}
@@ -76,6 +82,8 @@ export default function Home() {
             <LaunchpadSection key={title} title={title} apps={apps} />
           ))}
         </div>
+
+        <PitchBand />
       </div>
     </section>
   );
