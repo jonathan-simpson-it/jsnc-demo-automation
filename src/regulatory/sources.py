@@ -22,7 +22,8 @@ class RegulatorySource:
     kind: str
     url: str
     # Fetch strategy: "html" (parse <article> markup), "hkma_html" (new HKMA
-    # news lists, hub + subsections), or "sfc_api" (SFC JSON search API).
+    # news lists, hub + subsections), "sfc_api" (SFC JSON news search API),
+    # or "sfc_section_html" (server-rendered SFC section tables).
     mode: str = "html"
     # SFC search category used by the news API (mode="sfc_api").
     category: str = ""
@@ -45,21 +46,28 @@ SOURCES = [
         mode="sfc_api",
         category="all",
     ),
+    # SFC "News and announcements" hub sections are server-rendered tables
+    # (no public JSON API exists for them), scraped as section sources.
     RegulatorySource(
-        key="sfc_corporate_news",
+        key="sfc_policy_statements",
         regulator="SFC",
-        kind="corporate news",
-        url="https://www.sfc.hk/en/News-and-announcements/News/Corporate-news",
-        mode="sfc_api",
-        category="corporate",
+        kind="policy statement",
+        url="https://www.sfc.hk/en/News-and-announcements/Policy-statements-and-announcements",
+        mode="sfc_section_html",
     ),
     RegulatorySource(
-        key="sfc_enforcement_news",
+        key="sfc_high_shareholding",
         regulator="SFC",
-        kind="enforcement news",
-        url="https://www.sfc.hk/en/News-and-announcements/News/Enforcement-news",
-        mode="sfc_api",
-        category="enforcement",
+        kind="high shareholding",
+        url="https://www.sfc.hk/en/News-and-announcements/High-shareholding-concentration-announcements",
+        mode="sfc_section_html",
+    ),
+    RegulatorySource(
+        key="sfc_events",
+        regulator="SFC",
+        kind="event",
+        url="https://www.sfc.hk/en/News-and-announcements/Events",
+        mode="sfc_section_html",
     ),
     # --- SFC: circulars (legacy server-rendered page; now a JS shell, so this
     # source is fixture-only and used by offline tests, never polled live) ---

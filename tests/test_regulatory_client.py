@@ -49,12 +49,12 @@ def test_sfc_api_listing_mapping():
     """SFC news categories map through the site's JSON search API."""
     from src.regulatory.sources import source_by_key
 
-    source = source_by_key("sfc_enforcement_news")
+    source = source_by_key("sfc_news")
     assert source is not None and source.mode == "sfc_api"
 
     def fake_post(url, body):
         assert url.endswith("/api/news/search")
-        assert body["category"] == "enforcement"
+        assert body["category"] == "all"
         return {
             "items": [
                 {

@@ -103,6 +103,9 @@ def _main_region_html(html: str) -> str:
     container exists; otherwise return the page unchanged."""
     m = re.search(r'<div[^>]*class="[^"]*template-content-area[^"]*"[^>]*>', html, re.I)
     if not m:
+        # SFC content pages render the body right after the headline div.
+        m = re.search(r'<div[^>]*class="[^"]*headline[^"]*"[^>]*>.*?</div>', html, re.I | re.S)
+    if not m:
         return html
     region = html[m.end():]
     low = region.lower()
@@ -299,6 +302,70 @@ def _fetch_sfc_api(source: RegulatorySource, http_post) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# SFC server-rendered section tables (Policy statements / High shareholding /
+# Events): <table> rows with a date cell and an anchor.
+# ---------------------------------------------------------------------------
+
+_DATE_CELL_RE = re.compile(
+    r"\b(\d{1,2} [A-Z][a-z]{2} \d{4})\b|\b(\d{4}-\d{2}-\d{2})\b"
+)
+
+
+def _row_date(cells_text: str) -> str | None:
+    m = _DATE_CELL_RE.search(cells_text)
+    if not m:
+        return None
+    raw = m.group(0)
+    return _hkma_date_to_iso(raw) or raw
+
+
+def _parse_sfc_section_table(
+    html: str, list_url: str, kind: str
+) -> list[dict]:
+    """Parse a documents-on-display table: one item per data row."""
+    items: list[dict] = []
+    seen_urls: set[str] = set()
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S | re.I):
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.S | re.I)
+        if not cells or any("<th" in c for c in row.split("<t")[1:] if c.startswith("h")):
+            continue
+        cell_texts = [_clean_html(c) for c in cells]
+        date = _row_date(" ".join(cell_texts))
+        anchors = re.findall(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', row, re.S | re.I)
+        picks = []
+        for href, raw in anchors:
+            title = _clean_html(raw)
+            if len(title) >= 10 and not re.match(r"^\d{1,2} [A-Z][a-z]{2} \d{4}$", title):
+                picks.append((len(title), href, title))
+        if not date or not picks:
+            continue
+        picks.sort(key=lambda t: t[0], reverse=True)
+        _, href, title = picks[0]
+        url = urljoin(list_url, href)
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        slug = urlparse(url).path.rstrip("/").split("/")[-1] or None
+        external_id = (
+            re.sub(r"[^a-z0-9]+", "-", (slug or title).lower()).strip("-")[:80]
+        )
+        items.append(
+            {
+                "external_id": external_id,
+                "title": title,
+                "url": url,
+                "issued_at": date,
+                "kind": kind,
+            }
+        )
+    return items
+
+
+def _fetch_sfc_section(source: RegulatorySource, http_get) -> list[dict]:
+    return _parse_sfc_section_table(http_get(source.url), source.url, source.kind)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -322,6 +389,8 @@ def fetch_listing(
             items = _fetch_sfc_api(source, http_post)
         elif source.mode == "hkma_html":
             items = _sort_recent(_fetch_hkma_hub(source, http_get))
+        elif source.mode == "sfc_section_html":
+            items = _sort_recent(_fetch_sfc_section(source, http_get))
         else:
             items = _sort_recent(_fetch_html_listing(source, http_get))
         return items
@@ -339,6 +408,36 @@ def fetch_listing(
     return []
 
 
+def _http_get_bytes(url: str, timeout: int = 20) -> bytes:
+    import httpx
+
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            resp = client.get(url, headers={"User-Agent": USER_AGENT})
+            resp.raise_for_status()
+            return resp.content
+    except Exception as exc:
+        raise FetchError(str(exc)) from exc
+
+
+def _pdf_text(raw: bytes, max_chars: int = 6000) -> str:
+    """Best-effort text extraction from a PDF (first pages only)."""
+    try:
+        from io import BytesIO
+
+        from pypdf import PdfReader
+
+        reader = PdfReader(BytesIO(raw))
+        parts = []
+        for page in reader.pages[:3]:
+            parts.append(page.extract_text() or "")
+            if sum(len(x) for x in parts) >= max_chars:
+                break
+        return " ".join(parts)[:max_chars]
+    except Exception:
+        return ""
+
+
 def fetch_item_text(
     url: str,
     source: RegulatorySource,
@@ -347,14 +446,22 @@ def fetch_item_text(
 ) -> str:
     """Return cleaned article text for an item URL.
 
-    SFC API content URLs return JSON with an "html" field; everything else is
-    treated as a plain HTML page. Offline => load a <slug>.html fixture when
-    one exists, else fall back to the bare title so ingest still records the
-    item.
+    SFC API content URLs return JSON with an "html" field; media PDFs (e.g.
+    high-shareholding notices) are read with pypdf; everything else is treated
+    as a plain HTML page. Offline => load a <slug>.html fixture when one
+    exists, else fall back to the bare title so ingest still records the item.
     """
     http_get = _http_get or _http_get_text
     try:
-        raw = http_get(url)
+        if _http_get is None and ("/-/media/" in url or url.lower().endswith(".pdf")):
+            raw_bytes = _http_get_bytes(url)
+            if raw_bytes[:5] == b"%PDF-":
+                pdf_text = _pdf_text(raw_bytes)
+                if pdf_text:
+                    return _clean_html(pdf_text)
+            raw = raw_bytes.decode("utf-8", errors="ignore")
+        else:
+            raw = http_get(url)
         text = ""
         if "/edistributionWeb/api/" in url:
             try:

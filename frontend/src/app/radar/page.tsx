@@ -93,6 +93,47 @@ export default function RadarPage() {
       a.localeCompare(b),
   );
 
+  // SFC renders as its hub sections (news, policy statements, high
+  // shareholding, events), each keeping its own newest items; the endpoint
+  // already orders items section-by-section, so split on kind boundaries.
+  const SFC_SECTION_LABEL: Record<string, string> = {
+    news: "News",
+    "policy statement": "Policy statements",
+    "high shareholding": "High shareholding",
+    event: "Events",
+  };
+  interface Segment {
+    regulator: string;
+    kind: string | null;
+    label: string;
+    items: RegulatoryFeedItem[];
+    head: boolean;
+  }
+  const segments: Segment[] = [];
+  for (const regulator of regulators) {
+    const rows = grouped[regulator];
+    if (regulator !== "SFC") {
+      segments.push({ regulator, kind: null, label: regulator, items: rows, head: true });
+      continue;
+    }
+    let first = true;
+    const buckets: Record<string, RegulatoryFeedItem[]> = {};
+    for (const it of rows) {
+      const k = it.kind || "news";
+      (buckets[k] = buckets[k] || []).push(it);
+    }
+    for (const [kind, its] of Object.entries(buckets)) {
+      segments.push({
+        regulator,
+        kind,
+        label: SFC_SECTION_LABEL[kind] || kind,
+        items: its,
+        head: first,
+      });
+      first = false;
+    }
+  }
+
   return (
     <section className="section">
       <div className="container">
@@ -192,23 +233,38 @@ export default function RadarPage() {
 
         {!loading && !!items?.length && (
           <div className="space-y-2">
-            {regulators.map((regulator) => (
-              <div key={regulator}>
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.09em",
-                    textTransform: "uppercase",
-                    color: "var(--color-muted)",
-                    margin: "1.5rem 0 0.75rem",
-                  }}
-                >
-                  {regulator} — {grouped[regulator].length} item
-                  {grouped[regulator].length === 1 ? "" : "s"}
+            {segments.map((segment) => (
+              <div key={segment.regulator + (segment.kind || "")}>
+                <div style={{ margin: segment.head ? "1.5rem 0 0.4rem" : "1.4rem 0 0.4rem" }}>
+                  {segment.head && (
+                    <div
+                      style={{
+                        fontSize: "0.7rem",
+                        fontWeight: 600,
+                        letterSpacing: "0.09em",
+                        textTransform: "uppercase",
+                        color: "var(--color-muted)",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      {segment.regulator}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      fontSize: segment.kind ? "0.74rem" : "0.7rem",
+                      fontWeight: 600,
+                      letterSpacing: "0.09em",
+                      textTransform: "uppercase",
+                      color: segment.kind ? "var(--color-accent)" : "var(--color-muted)",
+                    }}
+                  >
+                    {segment.label} — {segment.items.length} item
+                    {segment.items.length === 1 ? "" : "s"}
+                  </div>
                 </div>
                 <div className="space-y-3">
-                  {grouped[regulator].map((item) => (
+                  {segment.items.map((item) => (
                     <div key={item.id} className="panel-card">
                       <h4 style={{ margin: "0 0 0.6rem" }}>
                         <a
