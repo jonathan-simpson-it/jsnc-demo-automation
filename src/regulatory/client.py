@@ -264,7 +264,7 @@ _SFC_SEARCH_BODY = {
     "lang": "EN",
     "year": "all",
     "month": "all",
-    "pageNo": 1,
+    "pageNo": 0,
     # Ask for a little more than the cap so recency sorting has slack.
     "pageSize": 20,
 }
@@ -275,10 +275,11 @@ def _fetch_sfc_api(source: RegulatorySource, http_post) -> list[dict]:
 
     The site's search ordering is not strictly newest-first, so paging past
     the first page is required to actually find the most recent items.
+    NOTE: page numbers are zero-based — pageNo 0 is the newest page.
     """
     items = []
     seen: set[str] = set()
-    for page_no in range(1, 4):  # up to 60 candidates; enough for a 10-cap
+    for page_no in range(0, 3):  # up to 60 candidates; enough for a 10-cap
         body = dict(_SFC_SEARCH_BODY)
         body["category"] = source.category or "all"
         body["pageNo"] = page_no
