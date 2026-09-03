@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 
 export default function Footer() {
   const pathname = usePathname();
-  // The chat page is a full-height app shell; a marketing footer would
-  // force the prompt bar off the bottom of the viewport.
-  if (pathname?.startsWith("/chat")) return null;
+  // App-shell tool pages are full-height dashboards; a marketing footer
+  // would push their content out of the working viewport.
+  if (pathname?.startsWith("/chat") || pathname === "/config") return null;
   return (
     <footer className="site-footer border-t border-line mt-auto">
       <div className="container footer-inner">
