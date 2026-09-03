@@ -55,7 +55,10 @@ export interface CrossDocComparison {
 export interface AgentQuery {
   query: string;
   agent_type?: string | null;
-  conversation_history?: { role: string; content: string }[];
+  conversation_id?: number | null;
+  /** Exact document filenames resolved from @-mentions; the backend intersects
+      them with the conversation's project scope (never crosses projects). */
+  tagged_filenames?: string[];
 }
 
 export interface AgentResponse {
@@ -64,6 +67,29 @@ export interface AgentResponse {
   metadata: Record<string, unknown>;
   citations: string[];
   confidence_score: number;
+}
+
+export interface Conversation {
+  id: number;
+  project_id: number | null;
+  title: string;
+  message_count: number;
+  last_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  id: number;
+  conversation_id: number;
+  role: "user" | "assistant";
+  content: string;
+  agent_type: string | null;
+  citations: string[];
+  trace: TraceEntry[];
+  confidence: number | null;
+  is_error: boolean;
+  created_at: string | null;
 }
 
 export interface AgentInfo {
@@ -84,6 +110,7 @@ export interface DocumentInfo {
   client_name?: string | null;
   project_name?: string | null;
   source?: string;
+  created_at?: string | null;
   tags?: Tag[];
 }
 
@@ -99,6 +126,13 @@ export interface UploadResult {
   size: number;
   status: string;
   chunks_ingested: number;
+}
+
+export interface ReindexResult {
+  id: number;
+  filename: string;
+  chunks_ingested: number;
+  status: string;
 }
 
 export interface EvalQuestion {
@@ -200,4 +234,65 @@ export interface OneDriveFile {
 export interface OneDriveStatus {
   connected: boolean;
   user_email: string | null;
+}
+
+export interface ReviewItem {
+  id: number;
+  conversation_id: number | null;
+  query: string;
+  draft_answer: string;
+  agent_type: string | null;
+  citations: string[];
+  trace: TraceEntry[];
+  confidence: number | null;
+  reason: string;
+  status: "pending" | "approved" | "edited" | "rejected";
+  edited_answer: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ---- Telemetry ---- */
+
+export interface TelemetryRun {
+  ts: number;
+  query: string;
+  agent_type: string;
+  routing_method: string | null;
+  confidence: number;
+  trace: TraceEntry[];
+  total_ms: number;
+  error: boolean;
+  cost: number;
+}
+export interface CostSummary {
+  calls: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost: number;
+  by_node: Record<string, { calls: number; tokens: number; cost: number }>;
+}
+
+/* ---- Regulatory ---- */
+
+export interface RegulatoryFeedItem {
+  id: number;
+  source_key: string;
+  external_id: string;
+  regulator: string;
+  kind: string;
+  title: string;
+  url: string;
+  issued_at: string | null;
+  fetched_at: string;
+  summary: string;
+  chunks: number;
+  status: string;
+}
+
+export interface RegulatoryState {
+  last_run: string | null;
+  last_status: string;
+  last_error: string | null;
+  running: boolean;
 }

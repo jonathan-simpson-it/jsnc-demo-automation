@@ -3,15 +3,23 @@ import type {
   AgentQuery,
   AgentResponse,
   Client,
+  Conversation,
+  ConversationMessage,
+  CostSummary,
   DocumentStats,
   EvalResults,
   HealthStatus,
   OneDriveFile,
   OneDriveStatus,
   Project,
+  ReindexResult,
+  RegulatoryFeedItem,
+  RegulatoryState,
+  ReviewItem,
   StreamEvent,
   SummaryResponse,
   Tag,
+  TelemetryRun,
   UploadResult,
 } from "./types";
 
@@ -86,23 +94,79 @@ export async function* streamAgent(
 
 /* ---- Documents ---- */
 
+export interface UploadProgress {
+  /** Monotonic 0..100 estimate of the whole upload+ingest operation. */
+  percent: number;
+  /** send: file bytes going up; process: server ingesting (headers not out
+      yet); receive: response body coming back; done: finished. */
+  phase: "send" | "process" | "receive" | "done";
+}
+
 export async function uploadDocument(
   file: File,
   clientId?: number | null,
   projectId?: number | null,
+  onProgress?: (p: UploadProgress) => void,
 ): Promise<UploadResult> {
-  const formData = new FormData();
-  formData.append("file", file);
   const params = new URLSearchParams();
   if (clientId) params.set("client_id", String(clientId));
   if (projectId) params.set("project_id", String(projectId));
   const qs = params.toString();
-  const res = await fetch(`/api/documents/upload${qs ? "?" + qs : ""}`, {
-    method: "POST",
-    body: formData,
+  const url = `/api/documents/upload${qs ? "?" + qs : ""}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    let last = -1;
+    const report = (percent: number, phase: UploadProgress["phase"]) => {
+      const pct = Math.max(0, Math.min(100, percent));
+      if (onProgress && pct > last) onProgress({ percent: pct, phase });
+      if (pct > last) last = pct;
+    };
+
+    // Real bytes sent upstream (0 -> ~40).
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) {
+        report(2 + (e.loaded / e.total) * 38, "send");
+      }
+    };
+    xhr.upload.onload = () => report(40, "send");
+    // Response headers arriving means the server finished ingesting: this is
+    // the first real signal that processing is over.
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+        report(88, "process");
+      }
+    };
+    // Body streaming back (~88 -> ~99 by Content-Length).
+    xhr.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) {
+        report(88 + (e.loaded / e.total) * 11, "receive");
+      }
+    };
+    xhr.onload = () => {
+      report(100, "done");
+      const text = xhr.responseText ?? "";
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(text) as UploadResult);
+        } catch {
+          reject(new Error(`Upload ${xhr.status}: invalid response`));
+        }
+      } else {
+        const body = text.trim();
+        reject(
+          new Error(`Upload ${xhr.status}${body ? `: ${body.slice(0, 300)}` : ""}`),
+        );
+      }
+    };
+    xhr.onerror = () => reject(new Error("Upload failed: network error"));
+    xhr.onabort = () => reject(new Error("Upload aborted"));
+
+    const fd = new FormData();
+    fd.append("file", file);
+    xhr.send(fd);
   });
-  if (!res.ok) throw new Error(`Upload ${res.status}: ${await res.text()}`);
-  return res.json();
 }
 
 export const fetchDocumentList = (params?: {
@@ -138,6 +202,20 @@ export const addDocumentTag = (docId: number, tagId: number) =>
 
 export const removeDocumentTag = (docId: number, tagId: number) =>
   apiFetch(`/api/documents/${docId}/tags/${tagId}`, { method: "DELETE" });
+
+export const reindexDocument = (docId: number) =>
+  apiFetch<ReindexResult>(`/api/documents/${docId}/reindex`, {
+    method: "POST",
+  });
+
+export const deleteDocument = (docId: number) =>
+  apiFetch<{ deleted: boolean }>(`/api/documents/${docId}`, {
+    method: "DELETE",
+  });
+
+/** URL for downloading a document's original source file. */
+export const documentDownloadUrl = (docId: number) =>
+  `/api/documents/${docId}/download`;
 
 /* ---- Tags ---- */
 
@@ -215,3 +293,59 @@ export const connectOneDrive = () => {
 
 export const disconnectOneDrive = () =>
   apiFetch("/api/onedrive/disconnect", { method: "POST" });
+
+/* ---- Conversations (chat history) ---- */
+
+export const fetchConversations = () =>
+  apiFetch<{ conversations: Conversation[] }>("/api/conversations");
+
+export const createConversation = (
+  projectId?: number | null,
+  title?: string,
+) =>
+  apiFetch<Conversation>("/api/conversations", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId ?? null, title }),
+  });
+
+export const deleteConversation = (id: number) =>
+  apiFetch<{ deleted: boolean }>(`/api/conversations/${id}`, {
+    method: "DELETE",
+  });
+
+export const fetchConversationMessages = (id: number) =>
+  apiFetch<{ messages: ConversationMessage[] }>(
+    `/api/conversations/${id}/messages`,
+  );
+
+/* ---- Review queue (human-in-the-loop) ---- */
+
+export const fetchReviewQueue = (status = "pending") =>
+  apiFetch<{ items: ReviewItem[] }>(`/api/review/queue?status=${status}`);
+export const approveReview = (id: number, answer?: string | null) =>
+  apiFetch<{ id: number; status: string }>(`/api/review/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ answer: answer ?? null }),
+  });
+export const rejectReview = (id: number) =>
+  apiFetch<{ id: number; status: string }>(`/api/review/${id}/reject`, {
+    method: "POST",
+  });
+
+/* ---- Telemetry ---- */
+
+export const fetchTelemetryRuns = () =>
+  apiFetch<{ runs: TelemetryRun[] }>("/api/telemetry/runs");
+export const fetchTelemetryCost = () =>
+  apiFetch<CostSummary>("/api/telemetry/cost");
+export const resetTelemetry = () =>
+  apiFetch<{ reset: boolean }>("/api/telemetry/reset", { method: "POST" });
+
+/* ---- Regulatory ---- */
+
+export const fetchRegulatoryFeed = () =>
+  apiFetch<{ items: RegulatoryFeedItem[] }>("/api/regulatory/feed");
+export const fetchRegulatoryStatus = () =>
+  apiFetch<RegulatoryState>("/api/regulatory/status");
+export const pollRegulatory = () =>
+  apiFetch<RegulatoryState>("/api/regulatory/poll", { method: "POST" });
