@@ -97,20 +97,102 @@ def status() -> dict:
     if not configured():
         return {
             "configured": False,
+            "demo": True,
+            "mailbox": "demo@firm.local",
             "reason": (
-                "Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID and "
-                "GRAPH_CLIENT_SECRET in .env to enable mailbox access."
+                "Demo mailbox active — set GRAPH_TENANT_ID, GRAPH_CLIENT_ID "
+                "and GRAPH_CLIENT_SECRET in .env to connect a real Outlook "
+                "mailbox."
             ),
         }
     try:
         mailbox = _mailbox()
     except RuntimeError as exc:
-        return {"configured": False, "reason": str(exc)}
-    return {"configured": True, "mailbox": mailbox}
+        return {"configured": False, "demo": False, "reason": str(exc)}
+    return {"configured": True, "demo": False, "mailbox": mailbox}
+
+
+# (sender, subject, days_ago, hour, minute)
+_DEMO_ROWS = [
+    ("SFC News Alerts <enquiry@sfc.hk>", "SFC enhances guidance for authorised funds with exposure to private market assets", 1, 9, 30),
+    ("HKMA Press Office <enquiry@hkma.gov.hk>", "Scam alert related to banks", 1, 8, 12),
+    ("Jonathan Simpson <jonathan@jsco.hk>", "Q3 portfolio review — schedule", 3, 16, 40),
+    ("SFC News Alerts <enquiry@sfc.hk>", "First cohort of GenA.I. Sandbox++", 4, 11, 5),
+    ("HKMA Press Office <enquiry@hkma.gov.hk>", "Exchange Fund Abridged Balance Sheet and Currency Board Account", 4, 9, 0),
+    ("Deal Desk <deals@jsco.hk>", "Enosis term sheet — redline comments", 5, 18, 22),
+    ("SFC News Alerts <enquiry@sfc.hk>", "Stronger Mainland connectivity reinforces Hong Kong's leading role as China assets gateway", 5, 14, 45),
+    ("Compliance <compliance@jsco.hk>", "AML training completion reminder", 6, 12, 10),
+    ("HKMA Press Office <enquiry@hkma.gov.hk>", "Monetary Statistics for July 2026", 7, 9, 15),
+    ("Investor Relations <ir@jsco.hk>", "LP report draft for Q3 2026", 8, 17, 55),
+]
+
+
+def _demo_emails(limit: int = 50) -> list[dict]:
+    """Deterministic demo mailbox used until Graph credentials are set."""
+    from datetime import datetime, timedelta
+
+    emails = []
+    now = datetime.utcnow()
+    for idx, (sender, subject, days_ago, hour, minute) in enumerate(_DEMO_ROWS[:limit]):
+        ts = (now - timedelta(days=days_ago)).replace(hour=hour, minute=minute, second=0)
+        name, address = sender.rsplit(" <", 1)
+        address = address[:-1]
+        emails.append(
+            {
+                "id": f"demo-{idx + 1}",
+                "subject": subject,
+                "from": name,
+                "from_email": address,
+                "received_at": ts.isoformat() + "Z",
+                "body_preview": (
+                    "Dear team,\n\n"
+                    "This is a demo message shown while the Microsoft Graph "
+                    "mailbox is not configured. Messages like this would list "
+                    "real mail from the connected Outlook mailbox once "
+                    "GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET "
+                    "are set in .env.\n\n"
+                    f"-- {subject}"
+                )[:500],
+                "web_link": "",
+            }
+        )
+    return emails
+
+
+def _save_demo_draft(subject: str, body: str, to: list[str] | None) -> dict:
+    """Keep demo drafts locally so the flow is visible end to end."""
+    import sqlite3
+    from datetime import datetime, timezone
+
+    conn = sqlite3.connect("./data/graph_drafts.db", timeout=5)
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS graph_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL,
+            to_recipients TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now'))
+        )"""
+    )
+    cur = conn.execute(
+        "INSERT INTO graph_drafts (subject, body, to_recipients) VALUES (?, ?, ?)",
+        (subject, body, ", ".join(to or [])),
+    )
+    conn.commit()
+    draft_id = cur.lastrowid
+    conn.close()
+    return {
+        "id": f"demo-draft-{draft_id}",
+        "subject": subject,
+        "draft_link": "",
+        "demo": True,
+    }
 
 
 def list_messages(limit: int = 50) -> list[dict]:
-    """Return the newest messages from the target mailbox."""
+    """Return the newest messages from the target mailbox (or demo data)."""
+    if not configured():
+        return _demo_emails(limit)
     mailbox = _mailbox()
     params = {
         "$top": max(1, min(int(limit), 200)),
@@ -136,7 +218,9 @@ def list_messages(limit: int = 50) -> list[dict]:
 
 
 def create_draft(subject: str, body: str, to: list[str] | None = None) -> dict:
-    """Create a draft message in the mailbox's Drafts folder."""
+    """Create a draft message in the mailbox's Drafts folder (demo locally)."""
+    if not configured():
+        return _save_demo_draft(subject, body, to)
     mailbox = _mailbox()
     payload: dict[str, Any] = {
         "subject": subject,

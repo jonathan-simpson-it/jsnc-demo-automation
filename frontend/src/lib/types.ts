@@ -310,6 +310,7 @@ export interface GraphEmail {
 
 export interface GraphMailStatus {
   configured: boolean;
+  demo?: boolean;
   reason?: string;
   mailbox?: string;
 }

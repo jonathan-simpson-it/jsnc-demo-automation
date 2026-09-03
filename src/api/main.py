@@ -82,8 +82,22 @@ async def health_check():
 
 @app.get("/api/eval/results")
 async def eval_results():
-    """Return eval results JSON."""
+    """Return eval results JSON, excluding personal candidate CV questions."""
     result_file = Path("scripts/eval_results.json")
     if not result_file.exists():
         return {"error": "No eval results found"}
-    return json.loads(result_file.read_text())
+    data = json.loads(result_file.read_text())
+    questions = [
+        q for q in data.get("questions", [])
+        if not str(q.get("id", "")).startswith("cv_")
+    ]
+    if len(questions) != len(data.get("questions", [])):
+        total = len(questions)
+        passed = sum(1 for q in questions if q.get("passed"))
+        meta = dict(data.get("meta") or {})
+        meta["questions"] = total
+        meta["passed"] = passed
+        meta["pct"] = round(passed / total * 100, 2) if total else 0.0
+        data["questions"] = questions
+        data["meta"] = meta
+    return data
