@@ -52,6 +52,40 @@ def _clean_html(raw: str) -> str:
     return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", raw))).strip()
 
 
+# Each poll run keeps only the newest items per source (recency matters for
+# the Radar feed; old announcements belong in archives, not the feed).
+MAX_ITEMS_PER_SOURCE = 10
+
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _hkma_date_to_iso(date_raw: str) -> str | None:
+    """Normalize '03 Sep 2026' -> '2026-09-03' (returns None when unknown)."""
+    m = re.match(
+        r"^\s*(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})\s*$", date_raw.strip()
+    )
+    if not m:
+        return None
+    day, month_name, year = m.group(1), m.group(2).lower()[:3], m.group(3)
+    month = _MONTHS.get(month_name)
+    if month is None:
+        return None
+    return f"{year}-{month:02d}-{int(day):02d}"
+
+
+def _sort_recent(items: list[dict], limit: int = MAX_ITEMS_PER_SOURCE) -> list[dict]:
+    """Return the `limit` newest items by issued_at (missing dates last),
+    keeping the source order stable within the same date."""
+    def key(item: dict):
+        date = item.get("issued_at") or ""
+        return (date[:10] if date else "0000-00-00")
+    ordered = sorted(items, key=key, reverse=True)
+    return ordered[:limit]
+
+
 # Boilerplate markers that terminate a page's main region (HKMA detail pages
 # carry the site chrome above and below the actual article).
 _REGION_END_MARKERS = (
@@ -139,7 +173,7 @@ def _parse_article_listing(html: str, source: RegulatorySource) -> list[dict]:
                 "external_id": external_id,
                 "title": title,
                 "url": url,
-                "issued_at": date or None,
+                "issued_at": _hkma_date_to_iso(date) or date or None,
             }
         )
     return items
@@ -175,7 +209,7 @@ def _parse_hkma_list(html: str, list_url: str, kind: str) -> list[dict]:
                 "external_id": external_id,
                 "title": title,
                 "url": url,
-                "issued_at": date_raw.strip() or None,
+                "issued_at": _hkma_date_to_iso(date_raw) or date_raw.strip() or None,
                 "kind": kind,
             }
         )
@@ -223,30 +257,45 @@ _SFC_SEARCH_BODY = {
     "year": "all",
     "month": "all",
     "pageNo": 1,
+    # Ask for a little more than the cap so recency sorting has slack.
     "pageSize": 20,
 }
 
 
 def _fetch_sfc_api(source: RegulatorySource, http_post) -> list[dict]:
-    body = dict(_SFC_SEARCH_BODY)
-    body["category"] = source.category or "all"
-    data = http_post(f"{SFC_API_BASE}/api/news/search", body)
+    """Merge a few result pages, then keep the newest items.
+
+    The site's search ordering is not strictly newest-first, so paging past
+    the first page is required to actually find the most recent items.
+    """
     items = []
-    for row in data.get("items", []):
-        ref_no = row.get("newsRefNo")
-        title = (row.get("title") or "").strip()
-        if not ref_no or not title:
-            continue
-        date = (row.get("issueDate") or "")[:10]
-        items.append(
-            {
-                "external_id": ref_no,
-                "title": title,
-                "url": f"{SFC_API_BASE}/api/news/content?refNo={ref_no}&lang=EN",
-                "issued_at": date or None,
-            }
-        )
-    return items
+    seen: set[str] = set()
+    for page_no in range(1, 4):  # up to 60 candidates; enough for a 10-cap
+        body = dict(_SFC_SEARCH_BODY)
+        body["category"] = source.category or "all"
+        body["pageNo"] = page_no
+        data = http_post(f"{SFC_API_BASE}/api/news/search", body)
+        rows = data.get("items", [])
+        if not rows:
+            break
+        for row in rows:
+            ref_no = row.get("newsRefNo")
+            title = (row.get("title") or "").strip()
+            if not ref_no or not title or ref_no in seen:
+                continue
+            seen.add(ref_no)
+            date = (row.get("issueDate") or "")[:10]
+            items.append(
+                {
+                    "external_id": ref_no,
+                    "title": title,
+                    "url": f"{SFC_API_BASE}/api/news/content?refNo={ref_no}&lang=EN",
+                    "issued_at": date or None,
+                }
+            )
+        if len(rows) < _SFC_SEARCH_BODY["pageSize"]:
+            break
+    return _sort_recent(items)
 
 
 # ---------------------------------------------------------------------------
@@ -271,9 +320,9 @@ def fetch_listing(
         if source.mode == "sfc_api":
             items = _fetch_sfc_api(source, http_post)
         elif source.mode == "hkma_html":
-            items = _fetch_hkma_hub(source, http_get)
+            items = _sort_recent(_fetch_hkma_hub(source, http_get))
         else:
-            items = _fetch_html_listing(source, http_get)
+            items = _sort_recent(_fetch_html_listing(source, http_get))
         if items:
             return items
     except Exception:
@@ -283,8 +332,8 @@ def fetch_listing(
             html = _read_fixture(source.html_fixture, base_dir)
             if source.mode == "hkma_html":
                 base = urlparse(source.url).scheme + "://" + urlparse(source.url).netloc
-                return _parse_hkma_list(html, f"{base}/eng/news-and-media/press-releases/", source.kind)
-            return _parse_article_listing(html, source)
+                return _sort_recent(_parse_hkma_list(html, f"{base}/eng/news-and-media/press-releases/", source.kind))
+            return _sort_recent(_parse_article_listing(html, source))
         except Exception:
             pass
     return []

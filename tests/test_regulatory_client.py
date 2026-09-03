@@ -23,14 +23,14 @@ def test_fetch_listing_sfc():
     item = items[0]
     assert item["external_id"]
     assert item["url"].startswith("https://www.sfc.hk")
-    assert item["issued_at"] == "16 Oct 2026"
+    assert item["issued_at"] == "2026-10-16"
 
 
 def test_fetch_listing_hkma():
     source = next(s for s in SOURCES if s.key == "hkma_circulars")
     items = fetch_listing(source, BASE, _http_get=_offline)
     assert len(items) == 2
-    assert items[0]["issued_at"] == "20 Oct 2026"
+    assert items[0]["issued_at"] == "2026-10-20"
 
 
 def test_fetch_item_text_from_fixture():
@@ -119,7 +119,7 @@ def test_hkma_hub_scraping():
     assert calls["n"] == 3  # hub + press-releases + speeches
     assert items[0]["title"] == "Scam alert related to banks"
     assert items[0]["external_id"] == "20260903-3"
-    assert items[0]["issued_at"] == "03 Sep 2026"
+    assert items[0]["issued_at"] == "2026-09-03"
     assert items[0]["kind"] == "press release"
     assert items[0]["url"].startswith("https://www.hkma.gov.hk")
 
