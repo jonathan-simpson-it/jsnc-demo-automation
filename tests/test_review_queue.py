@@ -212,6 +212,37 @@ def test_stream_low_confidence_queues(isolated_db, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def test_error_answer_never_queues(isolated_db, monkeypatch):
+    """A failed turn (bad key, outage) surfaces immediately: never queued,
+    even when human review is enabled, and persisted as an error message."""
+    monkeypatch.setattr(settings, "enable_human_review", True)
+    client = TestClient(_app)
+    error_resp = AgentResponse(
+        agent_type="due_diligence",
+        result="Error: Error code: 401 - invalid api key",
+        citations=[],
+        confidence_score=0.0,
+        metadata={"trace": [], "error": True},
+    )
+    conv_id = _make_conversation(client, monkeypatch, error_resp)
+    try:
+        resp = client.post("/api/agents/execute", json={
+            "query": "Hello?",
+            "agent_type": "due_diligence",
+            "conversation_id": conv_id,
+        })
+        assert resp.status_code == 200
+        assert "review" not in resp.json()["metadata"]
+        assert db.list_review_items() == []
+        msgs = client.get(
+            f"/api/conversations/{conv_id}/messages"
+        ).json()["messages"]
+        assert len(msgs) == 2 and msgs[1]["role"] == "assistant"
+        assert msgs[1]["is_error"] == 1
+    finally:
+        _cleanup(client, conv_id)
+
+
 def test_approve_appends_to_conversation(isolated_db, monkeypatch):
     client = TestClient(_app)
     conv_id = client.post(

@@ -135,10 +135,14 @@ def _persist_turn(
 def _should_queue(response, conv_used: bool) -> tuple[bool, str]:
     """Decide whether an answer must wait for human review.
 
-    ENABLE_HUMAN_REVIEW=on queues everything; otherwise rescue-path,
-    low-confidence, or error answers are auto-queued.
+    Error responses never queue: a failed turn must surface to the user
+    immediately so the cause (bad API key, outage, ...) is actionable.
+    ENABLE_HUMAN_REVIEW=on queues everything else; otherwise rescue-path
+    and low-confidence answers are auto-queued.
     """
     meta = response.metadata or {}
+    if meta.get("error"):
+        return (False, "")
     trace = meta.get("trace") or []
     rescue = any(t.get("node") in ("verify", "wide_search") for t in trace)
     low_conf = response.confidence_score < 0.5

@@ -200,9 +200,14 @@ function serverMessageToLocal(m: ConversationMessage): Message {
   let content = m.content;
   if (m.is_error) {
     const detail = content.replace(/^Error:\s*/i, "").trim().slice(0, 160);
-    content = detail
-      ? `The model service couldn't complete this turn (${detail}). Add your DeepSeek API key with the header API key button, then try again.`
-      : "The model service couldn't complete this turn. Please try again.";
+    if (detail && /invalid|authentication|401|402/i.test(detail)) {
+      content =
+        "Your request was rejected by the model service. Check the API key in the header button — it may be invalid or out of credit.";
+    } else if (detail) {
+      content = `The model service couldn't complete this turn (${detail}). Add your DeepSeek API key with the header API key button, then try again.`;
+    } else {
+      content = "The model service couldn't complete this turn. Please try again.";
+    }
   }
   return {
     id: `s-${m.id}`,
@@ -236,6 +241,7 @@ function ChatInner() {
   const stickBottomRef = useRef(true);
   const justSwitchedRef = useRef(false);
   const prevStreamingRef = useRef(false);
+  const queuedTurnRef = useRef(false);
 
   // --- Composer: attachments + @-mentions ---
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
@@ -500,6 +506,7 @@ function ChatInner() {
     setInput("");
     setMentions([]);
     setAtOpen(false);
+    queuedTurnRef.current = false;
     setMessages((prev) => [
       ...prev,
       { id: `u-${Date.now()}`, role: "user", content: finalQuery },
@@ -526,10 +533,31 @@ function ChatInner() {
         else if (ev.node) setStreamingNode(ev.node);
       }
       if (final) {
-        const review = (final.metadata as { review?: { id?: number } } | undefined)?.review;
-        if (review) {
+        const meta = (final.metadata ?? {}) as {
+          review?: { id?: number; status?: string };
+          error?: boolean;
+        };
+        if (meta.error) {
+          const detail = final.result
+            .replace(/^Error:\s*/i, "")
+            .trim()
+            .slice(0, 240);
+          const rejected =
+            !detail || /invalid|authentication|401|402|api key/i.test(detail);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `e-${Date.now()}`,
+              role: "assistant",
+              content: rejected
+                ? "Your request was rejected by the model service. Check the API key in the header button — it may be invalid or out of credit."
+                : `The model service returned an error: ${detail}`,
+            },
+          ]);
+        } else if (meta.review) {
           // Queued for human review: not shown as an answer, and not persisted
           // to the conversation until an officer approves/edits it.
+          queuedTurnRef.current = true;
           setMessages((prev) => [
             ...prev,
             {
@@ -537,16 +565,6 @@ function ChatInner() {
               role: "assistant",
               content:
                 "This answer is pending human review in the Review Hub. It will appear here once approved.",
-            },
-          ]);
-        } else if ((final.metadata as { error?: boolean } | undefined)?.error) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `e-${Date.now()}`,
-              role: "assistant",
-              content:
-                "The model service couldn't be reached (connection error). Add your DeepSeek API key with the header API key button, then try again.",
             },
           ]);
         } else {
@@ -609,15 +627,32 @@ function ChatInner() {
       setStreamingNode("");
       // Server is the source of truth: reconcile list + messages
       await refreshConversations();
+      const queued = queuedTurnRef.current;
+      queuedTurnRef.current = false;
+      let reconciled = false;
       if (conversationId !== null) {
         try {
           const res = await fetchConversationMessages(conversationId);
           if (res.messages.length) {
             setMessages(res.messages.map(serverMessageToLocal));
+            reconciled = true;
           }
         } catch {
           /* keep local echo */
         }
+      }
+      // A queued answer is not persisted server-side, so the reconcile above
+      // would erase its notice; re-show it so the turn never looks silent.
+      if (queued && reconciled) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `r-${Date.now()}`,
+            role: "assistant",
+            content:
+              "This answer is pending human review in the Review Hub. It will appear here once approved.",
+          },
+        ]);
       }
     }
   }
