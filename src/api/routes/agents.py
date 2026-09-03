@@ -28,6 +28,27 @@ def _require_api_key() -> None:
         )
 
 
+def _record_audit(query: str, response) -> None:
+    """Write the query/response pair into the tamper-evident audit trail.
+
+    Never fatal: an audit failure must not break a chat turn.
+    """
+    try:
+        from src.compliance.audit import AuditLog
+
+        meta = response.metadata or {}
+        AuditLog().log_query(
+            query=query,
+            response=response.result,
+            agent_type=response.agent_type,
+            trace=meta.get("trace") or [],
+            user_id="local",
+            confidence=response.confidence_score or 0.0,
+        )
+    except Exception:
+        pass
+
+
 def _push_run(query, response, cost_before: float) -> None:
     """Record a finished run into the in-memory telemetry log (never fatal).
 
@@ -233,6 +254,7 @@ async def execute_agent(query: AgentQuery):
             allowed_filenames=allowed,
         )
         _push_run(query.query, result, cost_before)
+        _record_audit(query.query, result)
         queue, reason = _should_queue(result, conv is not None)
         if queue:
             if conv is not None:
@@ -286,6 +308,7 @@ async def execute_agent_stream(query: AgentQuery):
             if event.get("done"):
                 resp = event["response"]
                 _push_run(query.query, resp, cost_before)
+                _record_audit(query.query, resp)
                 payload["done"] = True
                 # Decide queueing before the payload leaves, so the client sees
                 # metadata.review on the done event.

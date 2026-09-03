@@ -1,8 +1,13 @@
-"""Email summary generator from audit trail.
+"""Email summary generator from the audit trail.
 
-Queries the audit log for a time period (week/month) and produces
-an email-ready markdown summary with key metrics, top queries,
-agent usage breakdown, and per-user activity.
+Queries the audit log for a time period (week/month) and produces an
+email-ready markdown summary with key metrics, top queries, agent usage
+breakdown, and per-user activity.
+
+When the audit log is empty (e.g. installs that predate audit wiring),
+the generator falls back to the persisted chat history
+(conversation_messages) so reports always reflect real activity rather
+than fabricated numbers.
 """
 
 from __future__ import annotations
@@ -16,8 +21,13 @@ from datetime import datetime, timezone, timedelta
 class SummaryGenerator:
     """Generate email-ready summaries from the audit trail."""
 
-    def __init__(self, db_path: str = "./data/audit.db"):
+    def __init__(
+        self,
+        db_path: str = "./data/audit.db",
+        platform_db_path: str = "./data/platform.db",
+    ):
         self.db_path = db_path
+        self.platform_db_path = platform_db_path
         self._local = threading.local()
 
     def _conn(self) -> sqlite3.Connection:
@@ -65,6 +75,58 @@ class SummaryGenerator:
             for r in rows
         ]
 
+    def _conversation_entries(self, since: datetime) -> list[dict]:
+        """Build query/response entries from persisted chat history.
+
+        Pairs each user turn with the assistant turn that followed it in the
+        same conversation; user turns with no answer yet are counted without
+        an agent/confidence. Timestamps are stored in UTC.
+        """
+        try:
+            conn = sqlite3.connect(self.platform_db_path, timeout=5)
+            rows = conn.execute(
+                "SELECT conversation_id, role, content, agent_type, confidence, "
+                "created_at FROM conversation_messages ORDER BY id"
+            ).fetchall()
+            conn.close()
+        except Exception:
+            return []
+        since_iso = since.isoformat()
+        by_conv: dict[int, list[dict]] = {}
+        for conv_id, role, content, agent_type, confidence, created_at in rows:
+            ts = (created_at or "").strip().replace(" ", "T")
+            if not ts:
+                continue
+            by_conv.setdefault(conv_id, []).append(
+                {
+                    "role": role,
+                    "content": content or "",
+                    "agent_type": agent_type,
+                    "confidence": confidence,
+                    "ts": ts,
+                }
+            )
+        entries = []
+        for msgs in by_conv.values():
+            for i, msg in enumerate(msgs):
+                if msg["role"] != "user":
+                    continue
+                if msg["ts"] < since_iso:
+                    continue
+                nxt = msgs[i + 1] if i + 1 < len(msgs) else None
+                entries.append(
+                    {
+                        "timestamp": msg["ts"],
+                        "query": msg["content"],
+                        "response": (nxt or {}).get("content", ""),
+                        "agent_type": (nxt or {}).get("agent_type") or "unspecified",
+                        "user_id": "local",
+                        "confidence": (nxt or {}).get("confidence") if nxt else None,
+                    }
+                )
+        entries.sort(key=lambda e: e["timestamp"], reverse=True)
+        return entries
+
     def generate(self, period: str = "week") -> dict:
         """Generate a summary for the given period.
 
@@ -84,6 +146,8 @@ class SummaryGenerator:
             period_label = "Last 7 Days"
 
         entries = self._get_entries(since)
+        if not entries:
+            entries = self._conversation_entries(since)
 
         # --- Metrics ---
         total_queries = len(entries)

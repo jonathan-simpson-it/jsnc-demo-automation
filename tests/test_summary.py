@@ -58,13 +58,59 @@ def test_generate_month_summary():
 def test_empty_summary():
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = f"{tmpdir}/audit.db"
-        gen = SummaryGenerator(db_path=db_path)
+        platform_path = f"{tmpdir}/platform.db"  # no chat history either
+        gen = SummaryGenerator(db_path=db_path, platform_db_path=platform_path)
         result = gen.generate(period="week")
 
         assert result["total_queries"] == 0
         assert result["avg_confidence"] == 0.0
         assert len(result["agent_breakdown"]) == 0
         assert "No data yet" not in result["email_markdown"]
+
+
+def test_falls_back_to_chat_history_when_audit_empty():
+    """Empty audit + real chat history => report reflects the chats."""
+    import sqlite3
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        audit_path = f"{tmpdir}/audit.db"
+        platform_path = f"{tmpdir}/platform.db"
+        conn = sqlite3.connect(platform_path)
+        conn.execute(
+            """CREATE TABLE conversation_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                agent_type TEXT,
+                citations TEXT,
+                trace TEXT,
+                confidence REAL,
+                is_error INTEGER DEFAULT 0,
+                created_at TEXT
+            )"""
+        )
+        conn.executemany(
+            "INSERT INTO conversation_messages "
+            "(conversation_id, role, content, agent_type, confidence, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (1, "user", "What is the deal risk?", None, None, "2026-09-02 10:00:00"),
+                (1, "assistant", "Moderate risk.", "due_diligence", 0.9, "2026-09-02 10:00:05"),
+                (1, "user", "Compare the decks", None, None, "2026-09-01 09:00:00"),
+                (1, "assistant", "Differences found.", "cross_doc", 0.8, "2026-09-01 09:00:03"),
+            ],
+        )
+        conn.commit()
+        conn.close()
+
+        gen = SummaryGenerator(db_path=audit_path, platform_db_path=platform_path)
+        result = gen.generate(period="week")
+
+        assert result["total_queries"] == 2
+        agents = {a["agent"] for a in result["agent_breakdown"]}
+        assert agents == {"due_diligence", "cross_doc"}
+        assert result["top_queries"][0]["query"] == "What is the deal risk?"
 
 
 def test_email_markdown_format():

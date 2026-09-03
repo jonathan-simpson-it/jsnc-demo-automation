@@ -5,102 +5,6 @@ import type { SummaryResponse } from "@/lib/types";
 import StatCard from "@/components/StatCard";
 import { formatPercent, formatCount } from "@/lib/utils";
 
-const DEMO_WEEK: SummaryResponse = {
-  period: "2026-08-26/2026-09-02",
-  period_label: "Last 7 Days",
-  since: "2026-08-26T00:00:00Z",
-  total_queries: 47,
-  avg_confidence: 0.84,
-  agent_breakdown: [
-    { agent: "due_diligence", count: 18, pct: 38 },
-    { agent: "term_sheet", count: 12, pct: 26 },
-    { agent: "compliance", count: 8, pct: 17 },
-    { agent: "lp_report", count: 5, pct: 11 },
-    { agent: "cross_doc", count: 4, pct: 9 },
-  ],
-  user_activity: [
-    { user: "admin", queries: 29 },
-    { user: "analyst", queries: 12 },
-    { user: "partner", queries: 6 },
-  ],
-  top_queries: [
-    {
-      query: "Summarize the key risks in the Enosis term sheet",
-      agent: "term_sheet",
-      confidence: 0.91,
-      timestamp: "2026-09-01T14:32:00Z",
-    },
-    {
-      query: "Compare liquidation preferences across all three decks",
-      agent: "cross_doc",
-      confidence: 0.87,
-      timestamp: "2026-09-01T11:15:00Z",
-    },
-    {
-      query: "What are the anti-dilution provisions in the Dr. Yip proposal?",
-      agent: "term_sheet",
-      confidence: 0.83,
-      timestamp: "2026-08-31T16:48:00Z",
-    },
-    {
-      query: "Run compliance check on the Enosis pitch deck",
-      agent: "compliance",
-      confidence: 0.79,
-      timestamp: "2026-08-31T09:22:00Z",
-    },
-    {
-      query: "Due diligence summary for Jonathan Devano CV",
-      agent: "due_diligence",
-      confidence: 0.88,
-      timestamp: "2026-08-30T15:10:00Z",
-    },
-    {
-      query: "What ESOP pool size is recommended for Series A?",
-      agent: "due_diligence",
-      confidence: 0.82,
-      timestamp: "2026-08-30T10:05:00Z",
-    },
-    {
-      query: "Generate LP report for Q3 2026",
-      agent: "lp_report",
-      confidence: 0.86,
-      timestamp: "2026-08-29T14:30:00Z",
-    },
-    {
-      query: "Check board seat allocation across all term sheets",
-      agent: "cross_doc",
-      confidence: 0.80,
-      timestamp: "2026-08-28T11:45:00Z",
-    },
-  ],
-  email_markdown: `# Weekly Platform Summary
-## Aug 26 -- Sep 2, 2026
-
-**47 queries** processed across **5 agent types**
-Average confidence: **84%**
-
-### Agent Usage
-| Agent           | Queries | Share |
-|-----------------|---------|-------|
-| Due Diligence   | 18      | 38%   |
-| Term Sheet      | 12      | 26%   |
-| Compliance      | 8       | 17%   |
-| LP Report       | 5       | 11%   |
-| Cross-Document  | 4       | 9%    |
-
-### Top Queries
-1. Summarize the key risks in the Enosis term sheet (91%)
-2. Compare liquidation preferences across all three decks (87%)
-3. What are the anti-dilution provisions in the Dr. Yip proposal? (83%)
-4. Run compliance check on the Enosis pitch deck (79%)
-5. Due diligence summary for Jonathan Devano CV (88%)
-
-### User Activity
-- admin: 29 queries
-- analyst: 12 queries
-- partner: 6 queries`,
-};
-
 const DEMO_MONTH: SummaryResponse = {
   period: "2026-08-02/2026-09-02",
   period_label: "Last 30 Days",
@@ -180,9 +84,7 @@ Average confidence: **82%**
 };
 
 export default function SummaryPage() {
-  // Seed with demo data so the page is never empty; load() below replaces it
-  // with live data whenever the audit trail has activity.
-  const [data, setData] = useState<SummaryResponse | null>(DEMO_WEEK);
+  const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"week" | "month">("week");
@@ -193,13 +95,10 @@ export default function SummaryPage() {
     setError(null);
     try {
       const r = await generateSummary(p);
-      if (r.total_queries === 0) {
-        // Show demo data when real data is empty
-        setData(p === "week" ? DEMO_WEEK : DEMO_MONTH);
-      } else setData(r);
+      setData(r);
     } catch {
-      // API unreachable -- show demo data
-      setData(p === "week" ? DEMO_WEEK : DEMO_MONTH);
+      setError("Couldn't generate the report. Is the backend running?");
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -270,7 +169,21 @@ export default function SummaryPage() {
         )}
 
         {/* Data */}
-        {data && !loading && (
+        {data && !loading && data.total_queries === 0 && (
+          <div
+            className="panel-card"
+            style={{
+              textAlign: "center",
+              padding: "2.5rem 1.5rem",
+              color: "var(--color-muted)",
+              fontSize: "0.9rem",
+            }}
+          >
+            No activity in this period yet. Ask the agents a few questions and
+            this report will reflect them.
+          </div>
+        )}
+        {data && !loading && data.total_queries > 0 && (
           <div className="space-y-8">
             {/* Metric Cards */}
             <div
