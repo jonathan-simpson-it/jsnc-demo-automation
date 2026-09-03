@@ -24,6 +24,7 @@ from src.agents.prompts import (
     says_not_found,
 )
 from src.tools.search import create_search_tool
+from src.utils.cost_tracker import cost_tracker
 from src.utils.llm_cache import llm_cache
 from src.vector_store.chroma import VectorStore
 
@@ -41,6 +42,9 @@ class AgentState(TypedDict):
     verified: bool
     citations: list[str]
     conversation_history: list[dict]
+    # None = unrestricted retrieval; [] = project exists but has no documents;
+    # otherwise the only filenames RAG may retrieve from (project isolation).
+    allowed_filenames: list[str] | None
     vector_store: Any
     reviewed: bool
     review_pending: bool
@@ -292,6 +296,103 @@ PARSERS = {
     "cross_doc": _parse_cross_doc,
 }
 
+# Structured agent types whose parsed result has no natural prose channel for
+# "nothing was found" — they get an explicit no-data result instead of a
+# skeleton of Unknown/0/default fillers when the retrieval scope is empty.
+# due_diligence is excluded: its free-text answer already says
+# "Insufficient data" clearly on its own.
+_STRUCTURED_NO_DATA_TYPES = ("term_sheet", "lp_report", "compliance", "cross_doc")
+
+# search tool's exact no-content messages (see src/tools/search.py).
+_NO_DATA_PREFIXES = ("No documents are assigned", "No relevant documents found")
+
+
+def scope_lacks_data(text: str) -> bool:
+    """True when a retrieval result carries no usable document content.
+
+    Covers an empty scope (project with zero documents), a scope whose
+    documents don't match the query, and empty text.
+    """
+    if not text or not text.strip():
+        return True
+    return text.strip().startswith(_NO_DATA_PREFIXES)
+
+
+def empty_scope_result(agent_type: str) -> dict:
+    """Explicit no-data result for a structured agent in an empty scope.
+
+    Renders as a single clear message (StructuredOutput shows the top-level
+    keys) instead of skeleton fields like "Unknown"/0 that read as if data
+    existed. Documents are isolated per project, so the honest signal is that
+    the current workspace does not contain what the query asked for.
+    """
+    what = {
+        "term_sheet": "No term sheet data found in this project's workspace",
+        "lp_report": "No portfolio or fund data found in this project's workspace",
+        "compliance": "No documents to check found in this project's workspace",
+        "cross_doc": "No documents to compare found in this project's workspace",
+    }.get(agent_type, "No data found in this project's workspace")
+    return {
+        "message": (
+            f"{what} — no document in the current project matched the query. "
+            "Documents are isolated per project, so this data may live in a "
+            "different project or workspace. Upload the relevant documents and "
+            "assign them to this project (Documents page), or switch workspaces "
+            "before asking again."
+        )
+    }
+
+
+# Explicit financing-round mentions in a query ("Series B", "Seed", …).
+# Used to flag when a question asks about one round but the extracted terms
+# are for a different one, instead of silently presenting the closest match.
+_ASKED_ROUND_RE = re.compile(
+    r"\b(pre[- ]?seed|seed|angel|bridge|convertible|series\s*[a-zA-Z0-9]+)\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_round(text: str) -> str:
+    return re.sub(r"\s+", "", text).strip().lower()
+
+
+def annotate_round_mismatch(query: str, data: dict) -> dict:
+    """Flag when a term-sheet query names a round the extracted data is not for.
+
+    Example: the user asks about the "Acme Series B term sheet" but the
+    retrieved (in-scope) document is a Series A term sheet. Rather than
+    serving the Series A values as the answer, the result gets a leading
+    ``notice`` that says so explicitly.
+
+    Returns the original dict unchanged when there is nothing to flag (no
+    round mentioned in the query, no extracted round, or they match).
+    """
+    if not query or not isinstance(data, dict) or "round_type" not in data:
+        return data
+    asked = _ASKED_ROUND_RE.search(query)
+    if not asked:
+        return data
+    asked_round = _normalize_round(asked.group(0))
+    got_raw = str(data.get("round_type") or "")
+    got_round = _normalize_round(got_raw)
+    if not got_round or got_round in ("unknown", "notavailable", "na", "n/a"):
+        return data
+    # Skip when they match or when the extracted round already names the
+    # asked one (e.g. the model wrote "Series A (not Series B)" itself).
+    if (
+        asked_round == got_round
+        or asked_round in got_round
+        or got_round in asked_round
+    ):
+        return data
+    asked_label = asked.group(0)
+    note = (
+        f"The query asks about a {asked_label} round, but the extracted terms "
+        f"are for {got_raw} — no {asked_label} term sheet appears among the "
+        "retrieved documents. The values above are the closest in-scope match."
+    )
+    return {"notice": note, **dict(data)}
+
 
 # ---------------------------------------------------------------------------
 # Keyword classification (fast path before LLM)
@@ -354,7 +455,12 @@ def _answer_ok(text: str) -> bool:
     return _has_content(text) and not says_not_found(text)
 
 
-def _invoke_text(llm, messages, retries: int = 2) -> str:
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate (chars / 4) for cost accounting without provider usage."""
+    return max(1, len(text) // 4)
+
+
+def _invoke_text(llm, messages, retries: int = 2, node: str = "unknown") -> str:
     """Invoke the LLM, retrying when the response is empty or citation-only."""
     last = ""
     for _ in range(retries):
@@ -362,6 +468,12 @@ def _invoke_text(llm, messages, retries: int = 2) -> str:
         text = resp.content if isinstance(resp.content, str) else str(resp.content)
         last = text
         if _has_content(text):
+            input_chars = sum(len(str(m.content or "")) for m in messages)
+            cost_tracker.record_call(
+                node,
+                max(1, input_chars // 4),
+                max(1, len(text) // 4),
+            )
             return text
     return last
 
@@ -391,9 +503,15 @@ def _select_sources_llm(query: str, sources: list[tuple[int, str]]) -> list[int]
         for idx, text in sources
     ]
     try:
-        raw = _make_llm().invoke([HumanMessage(content=SOURCE_SELECTION_PROMPT.format(
+        prompt_text = SOURCE_SELECTION_PROMPT.format(
             query=query, sources="\n\n".join(abbreviated)
-        ))]).content.strip().upper()
+        )
+        raw = _make_llm().invoke([HumanMessage(content=prompt_text)]).content.strip().upper()
+        cost_tracker.record_call(
+            "narrow",
+            _estimate_tokens(prompt_text),
+            _estimate_tokens(str(raw)),
+        )
     except Exception:
         return [idx for idx, _ in sources]
 
@@ -441,7 +559,7 @@ Respond with ONLY one word: cross_doc, term_sheet, lp_report, compliance, or non
         messages.append(HumanMessage(content=history_text))
     messages.append(HumanMessage(content=query))
     try:
-        cls = _invoke_text(_make_llm(), messages).strip().lower()
+        cls = _invoke_text(_make_llm(), messages, node="classify").strip().lower()
         for valid in ("cross_doc", "term_sheet", "lp_report", "compliance"):
             if valid in cls:
                 llm_cache.set(query, valid, prefix="classify")
@@ -456,20 +574,27 @@ Respond with ONLY one word: cross_doc, term_sheet, lp_report, compliance, or non
 @_traced("search")
 def search_node(state: AgentState) -> dict:
     query = state["query"]
-    cached = llm_cache.get(query, prefix=state["agent_type"])
+    allowed = state.get("allowed_filenames")
+    scope_tag = "*" if allowed is None else "|".join(sorted(allowed))
+    cache_prefix = f"{state['agent_type']}|{scope_tag}"
+    cached = llm_cache.get(query, prefix=cache_prefix)
     if cached:
         return {"retrieved": cached}
 
     vs = _get_store(state)
-    retrieved = create_search_tool(vs).invoke(query)
-    llm_cache.set(query, retrieved, prefix=state["agent_type"])
+    retrieved = create_search_tool(vs, allowed_filenames=allowed).invoke(query)
+    llm_cache.set(query, retrieved, prefix=cache_prefix)
     return {"retrieved": retrieved}
 
 
 @_traced("narrow")
 def narrow_node(state: AgentState) -> dict:
     retrieved = state["retrieved"]
-    if not retrieved or retrieved.startswith("No relevant documents"):
+    if (
+        not retrieved
+        or retrieved.startswith("No relevant documents")
+        or retrieved.startswith("No documents are assigned")
+    ):
         return {"narrowed": retrieved}
 
     matches = list(re.finditer(r"\[Source (\d+):[^\]]*\]", retrieved))
@@ -517,6 +642,7 @@ def answer_node(state: AgentState) -> dict:
     answer = _invoke_text(
         _make_llm(temperature=settings.deepseek_temperature),
         [SystemMessage(content=_SYSTEM_PROMPTS[agent_type]), HumanMessage(content=answer_prompt)],
+        node="answer",
     )
     # An empty/citation-only/not-found answer triggers the verify/wide_search loop
     found = _answer_ok(answer)
@@ -534,7 +660,7 @@ def verify_node(state: AgentState) -> dict:
             HumanMessage(content=VERIFICATION_PROMPT.format(
                 query=state["query"], retrieved=state["narrowed"]
             )),
-        ])
+        ], node="verify")
         if _answer_ok(verified):
             return {"answer": verified, "citations": _extract_citations(verified), "verified": True}
     except Exception:
@@ -542,19 +668,26 @@ def verify_node(state: AgentState) -> dict:
     return {"verified": False}
 
 
-def _build_wide_context(vs: VectorStore, queries: list[str], limit: int = 30) -> str:
+def _build_wide_context(
+    vs: VectorStore,
+    queries: list[str],
+    allowed_filenames: list[str] | None = None,
+    limit: int = 30,
+) -> str:
     """Build a rescue-mode retrieval context with fair per-document sampling.
 
-    Searches ALL collections (no document detection — misrouting is a common
-    failure mode by the time we reach wide_search) and interleaves chunks
-    round-robin across documents. A pure score-ordered global list lets one
-    over-represented document (e.g. a memo mentioning the same fund name as
-    the CV) drown out the document that actually answers the question.
+    Searches ALL collections within the retrieval scope (no document
+    detection — misrouting is a common failure mode by the time we reach
+    wide_search) and interleaves chunks round-robin across documents. A pure
+    score-ordered list lets one over-represented document (e.g. a memo
+    mentioning the same fund name as the CV) drown out the document that
+    actually answers the question.
     """
     seen: set[str] = set()
     per_doc: dict[str, list[dict]] = {}
+    scope = set(allowed_filenames) if allowed_filenames is not None else None
     for q in queries:
-        for r in vs.search(q, k=40):
+        for r in vs.search(q, k=40, filenames=scope):
             key = r["content"][:100]
             if key in seen:
                 continue
@@ -593,7 +726,7 @@ def wide_search_node(state: AgentState) -> dict:
     if keywords:
         queries.append(" ".join(keywords))
 
-    wide_text = _build_wide_context(vs, queries)
+    wide_text = _build_wide_context(vs, queries, state.get("allowed_filenames"))
     if not wide_text:
         return {"verified": True}
 
@@ -606,7 +739,7 @@ def wide_search_node(state: AgentState) -> dict:
             HumanMessage(content=VERIFICATION_PROMPT.format(
                 query=query, retrieved=wide_text
             )),
-        ])
+        ], node="wide_search")
         if _answer_ok(verified):
             return {"answer": verified, "citations": _extract_citations(verified), "verified": True}
     except Exception:
