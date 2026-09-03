@@ -1,4 +1,5 @@
 "use client";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchRegulatoryFeed,
@@ -8,18 +9,26 @@ import {
 import type { RegulatoryFeedItem, RegulatoryState } from "@/lib/types";
 import RegulatorMark from "@/components/RegulatorMark";
 
-const REGULATOR_ORDER: Record<string, number> = { SFC: 0, HKMA: 1 };
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return "date unknown";
+function relativeWhen(iso: string | null): string {
+  if (!iso) return "";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "date unknown";
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  if (Number.isNaN(d.getTime())) return "";
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
+
+const SFC_SECTION_LABEL: Record<string, string> = {
+  news: "News",
+  "policy statement": "Policy statements",
+  "high shareholding": "High shareholding",
+  event: "Events",
+};
 
 export default function RadarPage() {
   const [items, setItems] = useState<RegulatoryFeedItem[] | null>(null);
@@ -64,8 +73,8 @@ export default function RadarPage() {
   if (failed)
     return (
       <section className="section">
-        <div className="container" style={{ textAlign: "center", padding: "3rem 0" }}>
-          <p style={{ color: "var(--color-muted)", marginBottom: "1.25rem" }}>
+        <div className="container text-center py-12">
+          <p className="text-neutral-500 mb-5 text-sm">
             Couldn't load the regulatory feed. Is the backend running?
           </p>
           <button type="button" onClick={load} className="button button--solid">
@@ -76,333 +85,254 @@ export default function RadarPage() {
     );
 
   const busy = polling || !!state?.running;
-  const chipColors: Record<string, { bg: string; fg: string }> = {
-    ok: { bg: "var(--color-accent-soft)", fg: "var(--color-accent)" },
-    error: { bg: "transparent", fg: "var(--color-error)" },
-    idle: { bg: "var(--color-accent-soft)", fg: "var(--color-ink)" },
-  };
-  const sc = chipColors[state?.last_status ?? "idle"] || chipColors.idle;
+  const rows = items ?? [];
 
-  const grouped: Record<string, RegulatoryFeedItem[]> = {};
-  for (const item of items ?? []) {
-    grouped[item.regulator] = grouped[item.regulator] || [];
-    grouped[item.regulator].push(item);
-  }
-  const regulators = Object.keys(grouped).sort(
-    (a, b) =>
-      (REGULATOR_ORDER[a] ?? 2) - (REGULATOR_ORDER[b] ?? 2) ||
-      a.localeCompare(b),
-  );
+  // Split the feed into the two regulator columns, preserving feed order.
+  const sfcRows = rows.filter((i) => i.regulator === "SFC");
+  const hkmaRows = rows.filter((i) => i.regulator === "HKMA");
 
   // SFC renders as its hub sections (news, policy statements, high
-  // shareholding, events), each keeping its own newest items; the endpoint
-  // already orders items section-by-section, so split on kind boundaries.
-  const SFC_SECTION_LABEL: Record<string, string> = {
-    news: "News",
-    "policy statement": "Policy statements",
-    "high shareholding": "High shareholding",
-    event: "Events",
-  };
-  interface Segment {
-    regulator: string;
-    kind: string | null;
-    label: string;
-    items: RegulatoryFeedItem[];
-    head: boolean;
+  // shareholding, events). Buckets keep first-seen (feed) order.
+  function sfcSegments(): { label: string; items: RegulatoryFeedItem[] }[] {
+    const buckets: { label: string; items: RegulatoryFeedItem[] }[] = [];
+    const index = new Map<string, number>();
+    for (const it of sfcRows) {
+      const kind = it.kind || "news";
+      const label = SFC_SECTION_LABEL[kind] || kind;
+      let idx = index.get(kind);
+      if (idx === undefined) {
+        idx = buckets.length;
+        index.set(kind, idx);
+        buckets.push({ label, items: [] });
+      }
+      buckets[idx].items.push(it);
+    }
+    return buckets;
   }
-  const segments: Segment[] = [];
-  for (const regulator of regulators) {
-    const rows = grouped[regulator];
-    if (regulator !== "SFC") {
-      segments.push({ regulator, kind: null, label: regulator, items: rows, head: true });
-      continue;
-    }
-    let first = true;
-    const buckets: Record<string, RegulatoryFeedItem[]> = {};
-    for (const it of rows) {
-      const k = it.kind || "news";
-      (buckets[k] = buckets[k] || []).push(it);
-    }
-    for (const [kind, its] of Object.entries(buckets)) {
-      segments.push({
-        regulator,
-        kind,
-        label: SFC_SECTION_LABEL[kind] || kind,
-        items: its,
-        head: first,
-      });
-      first = false;
-    }
+  const sfcSegmentsList = sfcSegments();
+
+  const sfcError = state?.last_status === "error";
+  const dotColor = busy
+    ? "bg-amber-400"
+    : sfcError
+      ? "bg-red-500"
+      : "bg-emerald-500";
+
+  const statusPill = (status?: string) => {
+    if (status === "ingested")
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (status === "error")
+      return "bg-red-50 text-red-600 border-red-200";
+    return "bg-neutral-100 text-neutral-500 border-neutral-200";
+  };
+
+  function ColumnHeader({
+    code,
+    title,
+    count,
+  }: {
+    code: string;
+    title: string;
+    count: number;
+  }) {
+    return (
+      <div className="sticky top-14 z-10 -mx-4 px-4 py-3 backdrop-blur bg-neutral-50/85 border-b border-neutral-200 flex items-center gap-3">
+        <RegulatorMark code={code} size={32} withName />
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.95rem] font-bold text-neutral-900 tracking-tight leading-tight">
+            {title}
+          </div>
+          <div className="text-xs text-neutral-400">
+            Official circulars &amp; news
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-neutral-100 border border-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-600 tabular-nums">
+          {count} item{count === 1 ? "" : "s"}
+        </span>
+      </div>
+    );
+  }
+
+  function FeedCard({ item }: { item: RegulatoryFeedItem }) {
+    return (
+      <article className="group bg-white border border-neutral-200 rounded-lg p-4 transition hover:border-neutral-300 hover:shadow-sm">
+        <h4 className="m-0">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[0.92rem] leading-snug font-semibold text-neutral-900 hover:text-neutral-950 inline-flex items-start gap-1.5"
+          >
+            <span className="overflow-hidden">{item.title}</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 mt-1 text-neutral-300 group-hover:text-neutral-900"
+              aria-hidden="true"
+            >
+              <path d="M7 17L17 7" />
+              <path d="M7 7h10v10" />
+            </svg>
+          </a>
+        </h4>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-500 capitalize">
+            {item.kind}
+          </span>
+          <span className="text-xs text-neutral-400">{fmtDate(item.issued_at)}</span>
+          <span className="flex-1" />
+          <span className="text-xs text-neutral-400 tabular-nums">
+            {item.chunks} chunk{item.chunks === 1 ? "" : "s"}
+          </span>
+          {!item.summary && (
+            <span className="rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+              Pending impact
+            </span>
+          )}
+          <span
+            className={`rounded-md border px-1.5 py-0.5 text-[11px] font-medium capitalize ${statusPill(item.status)}`}
+          >
+            {item.status}
+          </span>
+        </div>
+        {item.summary && (
+          <p
+            className="mt-2 mb-0 text-sm leading-relaxed text-neutral-500"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {item.summary}
+          </p>
+        )}
+      </article>
+    );
   }
 
   return (
     <section className="section">
       <div className="container">
-        <div className="section-intro">
+        {/* Hero */}
+        <div className="mb-6">
           <span className="section-eyebrow">Compliance &amp; Risk</span>
-          <h1
-            style={{
-              fontSize: "clamp(1.4rem, 3.8vw, 2rem)",
-              fontFamily: "var(--font-display)",
-              fontWeight: 400,
-              lineHeight: 1.15,
-              letterSpacing: "-0.01em",
-              marginBottom: "1rem",
-            }}
-          >
+          <h1 className="mt-1 mb-2 text-2xl font-semibold tracking-tight text-neutral-900">
             Regulatory radar.
           </h1>
-          <p>
+          <p className="mb-0 text-sm text-neutral-500 max-w-2xl leading-relaxed">
             Live SFC and HKMA circulars, ingested into the knowledge base with
-            recency-weighted retrieval — grounded in today's guidance.
-          </p>
-          <div
-            className="flex flex-wrap items-center gap-2"
-            style={{ marginTop: "1rem" }}
-          >
-            <span
-              style={{
-                fontSize: "0.72rem",
-                fontWeight: 600,
-                letterSpacing: "0.09em",
-                textTransform: "uppercase",
-                color: "var(--color-muted)",
-              }}
-            >
-              Sources:
-            </span>
-            <RegulatorMark code="SFC" withName />
-            <RegulatorMark code="HKMA" withName />
-          </div>
-          <p
-            style={{
-              fontSize: "0.72rem",
-              marginTop: "0.5rem",
-              color: "var(--color-muted)",
-            }}
-          >
-            Logos belong to their owners and identify official sources.
+            recency-weighted retrieval, grounded in today's guidance.
           </p>
         </div>
 
-        {/* Status strip */}
-        <div
-          className="panel-card"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-            padding: "0.9rem 1.2rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div>
-            <div
-              className="flex flex-wrap items-center gap-2"
-              style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}
-            >
-              <span style={{ fontWeight: 500 }}>
-                Last run: {state?.last_run || "never"}
+        {/* Utility row */}
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <span className="flex items-center gap-2 text-sm text-neutral-600">
+            <span
+              className={`h-2 w-2 rounded-full ${dotColor} animate-pulse`}
+              aria-hidden="true"
+            />
+            {busy ? (
+              <span className="font-medium text-neutral-700">Syncing…</span>
+            ) : (
+              <span className="font-medium text-neutral-700">
+                Updated{" "}
+                {relativeWhen(state?.last_run || null) || "never"}
               </span>
-              <span className="chip" style={{ background: sc.bg, color: sc.fg }}>
-                {state?.last_status ?? "idle"}
-              </span>
-            </div>
-            {state?.last_error && (
-              <div
-                style={{
-                  marginTop: "0.35rem",
-                  fontSize: "0.75rem",
-                  color: "var(--color-muted)",
-                }}
-              >
-                last error: {state.last_error}
-              </div>
             )}
-          </div>
+          </span>
+          <span className="text-xs text-neutral-400">
+            {state?.last_status ?? "idle"}
+          </span>
+          {state?.last_error && (
+            <span className="text-xs text-red-500 break-all">
+              last error: {state.last_error}
+            </span>
+          )}
+          <div className="flex-1" />
           <button
             type="button"
-            className="button button--solid button--small"
+            className="rounded-lg bg-neutral-900 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-60"
             disabled={busy}
             onClick={checkNow}
           >
-            {busy ? "Checking…" : "Check now"}
+            {busy ? "Checking…" : "Sync / Check now"}
           </button>
         </div>
 
         {loading && (
-          <p
-            style={{
-              color: "var(--color-muted)",
-              textAlign: "center",
-              padding: "3rem 0",
-              fontSize: "0.88rem",
-            }}
-          >
+          <p className="py-12 text-center text-sm text-neutral-400">
             Loading regulatory feed...
           </p>
         )}
 
-        {!loading && !items?.length && (
-          <p
-            style={{
-              color: "var(--color-muted)",
-              textAlign: "center",
-              padding: "3rem 0",
-              fontSize: "0.88rem",
-            }}
-          >
-            Nothing on the radar yet — run Check now to fetch the latest
+        {!loading && rows.length === 0 && (
+          <p className="py-12 text-center text-sm text-neutral-400">
+            Nothing on the radar yet. Run Sync / Check now to fetch the latest
             circulars.
           </p>
         )}
 
-        {!loading && !!items?.length && (
-          <div className="space-y-2">
-            {segments.map((segment) => (
-                <div key={segment.regulator + (segment.kind || "")}>
-                  {segment.head ? (
-                    <div style={{ margin: "1.5rem 0 0.4rem" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}
-                      >
-                        <RegulatorMark code={segment.regulator} size={20} />
-                        <span
-                          style={{
-                            fontSize: "0.7rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.09em",
-                            textTransform: "uppercase",
-                            color: "var(--color-muted)",
-                          }}
-                        >
-                          {segment.kind
-                            ? segment.regulator
-                            : `${segment.regulator} — ${segment.items.length} item${segment.items.length === 1 ? "" : "s"}`}
-                        </span>
-                      </div>
-                      {segment.kind && (
-                        <div
-                          style={{
-                            margin: "0.25rem 0 0",
-                            fontSize: "0.74rem",
-                            fontWeight: 600,
-                            letterSpacing: "0.09em",
-                            textTransform: "uppercase",
-                            color: "var(--color-accent)",
-                          }}
-                        >
-                          {segment.label} — {segment.items.length} item
-                          {segment.items.length === 1 ? "" : "s"}
-                        </div>
-                      )}
+        {!loading && rows.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* SFC column */}
+            <div className="min-w-0">
+              <ColumnHeader
+                code="SFC"
+                title="SFC Circulars & News"
+                count={sfcRows.length}
+              />
+              <div className="mt-4 space-y-4">
+                {sfcSegmentsList.map((seg) => (
+                  <div key={seg.label}>
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                      {seg.label} · {seg.items.length}
                     </div>
-                  ) : (
-                    <div style={{ margin: "1.4rem 0 0.4rem" }}>
-                      <div
-                        style={{
-                          fontSize: "0.74rem",
-                          fontWeight: 600,
-                          letterSpacing: "0.09em",
-                          textTransform: "uppercase",
-                          color: "var(--color-accent)",
-                        }}
-                      >
-                        {segment.label} — {segment.items.length} item
-                        {segment.items.length === 1 ? "" : "s"}
-                      </div>
+                    <div className="space-y-3">
+                      {seg.items.map((item) => (
+                        <FeedCard key={item.id} item={item} />
+                      ))}
                     </div>
-                  )}
-                  <div className="space-y-3">
-                  {segment.items.map((item) => (
-                    <div key={item.id} className="panel-card">
-                      <h4 style={{ margin: "0 0 0.6rem" }}>
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            fontSize: "0.92rem",
-                            fontWeight: 500,
-                            color: "var(--color-ink)",
-                            textDecoration: "none",
-                            transition: "color var(--transition-fast)",
-                          }}
-                        >
-                          {item.title}{" "}
-                          <span
-                            style={{
-                              fontSize: "0.85rem",
-                              color: "var(--color-accent)",
-                            }}
-                          >
-                            ↗
-                          </span>
-                        </a>
-                      </h4>
-                      <div
-                        className="flex flex-wrap items-center gap-2"
-                        style={{ marginBottom: "0.6rem" }}
-                      >
-                        <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
-                          {item.kind}
-                        </span>
-                        <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
-                          {fmtDate(item.issued_at)}
-                        </span>
-                        <span
-                          className="chip"
-                          style={
-                            item.status === "ingested"
-                              ? { background: "var(--color-accent-soft)", color: "var(--color-accent)" }
-                              : item.status === "error"
-                                ? { background: "transparent", color: "var(--color-error)" }
-                                : undefined
-                          }
-                        >
-                          {item.status}
-                        </span>
-                        <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
-                          {item.chunks} chunk{item.chunks === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                      {item.summary ? (
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.85rem",
-                            color: "var(--color-muted)",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {item.summary}
-                        </p>
-                      ) : (
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.85rem",
-                            color: "var(--color-muted)",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          Impact summary pending.
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* HKMA column */}
+            <div className="min-w-0">
+              <ColumnHeader
+                code="HKMA"
+                title="HKMA Circulars & News"
+                count={hkmaRows.length}
+              />
+              <div className="mt-4 space-y-3">
+                {hkmaRows.map((item) => (
+                  <FeedCard key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
     </section>
   );
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "date unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "date unknown";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
