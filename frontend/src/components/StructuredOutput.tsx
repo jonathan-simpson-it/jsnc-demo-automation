@@ -49,6 +49,9 @@ const scalarStyle: CSSProperties = {
   color: "var(--color-ink)",
   overflowWrap: "anywhere",
   whiteSpace: "pre-wrap",
+  // Override the global 40rem paragraph cap so answers fill their card
+  // instead of wrapping early and leaving a large empty gutter.
+  maxWidth: "none",
 };
 
 const rowLabelStyle: CSSProperties = {
