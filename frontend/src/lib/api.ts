@@ -23,6 +23,10 @@ import type {
   SummaryResponse,
   Tag,
   TelemetryRun,
+  ComposerDraft,
+  EmailTemplateKey,
+  EmailTone,
+  SavedDraft,
   UploadResult,
 } from "./types";
 import { apiHeaders, getApiKey } from "./api-key";
@@ -370,3 +374,18 @@ export const createGraphDraft = (
     method: "POST",
     body: JSON.stringify({ subject, body, to }),
   });
+
+export const generateAiDraft = (payload: {
+  period: "week" | "month";
+  template: EmailTemplateKey;
+  tone: EmailTone;
+  instructions: string;
+  to: string[];
+}) =>
+  apiFetch<ComposerDraft>("/api/graph/mail/draft/generate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const fetchGraphDrafts = (limit = 20) =>
+  apiFetch<{ drafts: SavedDraft[] }>(`/api/graph/mail/drafts?limit=${limit}`);

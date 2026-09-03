@@ -320,3 +320,23 @@ export interface GraphDraftResult {
   subject: string;
   draft_link: string;
 }
+
+export type EmailTemplateKey = "digest" | "monthly" | "client" | "alert";
+export type EmailTone = "professional" | "friendly" | "formal";
+
+export interface ComposerDraft {
+  subject: string;
+  body: string;
+  to: string[];
+  generated_by: "ai" | "template";
+  period: string;
+}
+
+export interface SavedDraft {
+  id: string;
+  subject: string;
+  to: string;
+  created_at: string | null;
+  demo?: boolean;
+  draft_link?: string;
+}
