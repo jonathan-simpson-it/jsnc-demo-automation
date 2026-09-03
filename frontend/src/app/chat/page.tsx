@@ -41,7 +41,7 @@ const AGENTS = [
   { value: "due_diligence", label: "Due Diligence" },
   { value: "term_sheet", label: "Term Sheet" },
   { value: "lp_report", label: "LP Report" },
-  { value: "compliance", label: "Compliance" },
+  { value: "compliance", label: "Compliance Auditor" },
   { value: "cross_doc", label: "Cross-Document" },
 ];
 
@@ -49,7 +49,7 @@ const AGENT_NAMES: Record<string, string> = {
   due_diligence: "Due Diligence Agent",
   term_sheet: "Term Sheet Extractor",
   lp_report: "LP Report Generator",
-  compliance: "Compliance Checker",
+  compliance: "Compliance Auditor",
   cross_doc: "Cross-Document Comparison",
 };
 
@@ -165,9 +165,9 @@ const SUGGESTIONS: Record<string, string[]> = {
     "Summarize the risk factors",
   ],
   compliance: [
-    "Check regulatory compliance of the term sheet",
-    "What jurisdictions are covered?",
-    "Are there any compliance issues?",
+    "Audit the term sheet for SFC, HKMA and AMLO gaps",
+    "Which jurisdictions and regulations apply to this document?",
+    "List the corrective actions the audit requires",
   ],
   cross_doc: [
     "Compare liquidation preferences across all decks",
@@ -229,8 +229,8 @@ function ChatInner() {
       id: "welcome",
       role: "assistant",
       content: initialAgent
-        ? `Hello! I'm your ${AGENT_NAMES[initialAgent] || initialAgent}. Ask me anything about the documents in the knowledge base.`
-        : "Hello! I'm your PE AI assistant. Ask me about due diligence, term sheets, compliance, or any documents in the knowledge base.",
+        ? `Hello — I'm your ${AGENT_NAMES[initialAgent] || initialAgent}, tuned for private markets. Ask me anything about the documents in this workspace — every answer comes with its sources.`
+        : "Hello — I'm the Jonathan Simpson & Co. AI analyst for private markets. Ask me about due diligence, term sheets, LP reports, or SFC- and HKMA-aware compliance — grounded in the documents in this workspace.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -1033,18 +1033,33 @@ function ChatInner() {
                     maxWidth: "34rem",
                   }}
                 >
-                  You're chatting with{" "}
-                  <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
-                    {activeAgentName}
-                  </strong>{" "}
-                  in the{" "}
-                  <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
-                    {workspace
-                      ? projects.find((p) => p.id === Number(workspace))?.name ||
-                        "selected project"
-                      : "Global workspace"}
-                  </strong>
-                  .
+                  {agentType ? (
+                    <>
+                      You're chatting with{" "}
+                      <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
+                        {activeAgentName}
+                      </strong>{" "}
+                      in the{" "}
+                      <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
+                        {workspace
+                          ? projects.find((p) => p.id === Number(workspace))?.name ||
+                            "selected project"
+                          : "Global workspace"}
+                      </strong>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      You're chatting with the{" "}
+                      <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
+                        Jonathan Simpson &amp; Co. AI analyst
+                      </strong>{" "}
+                      for private markets — grounded in this workspace's
+                      documents, with sources on every answer. Ask about due
+                      diligence, term sheets, LP reports, or SFC- and HKMA-aware
+                      compliance.
+                    </>
+                  )}
                 </p>
                 <div
                   className="grid gap-3 w-full sm:grid-cols-2"

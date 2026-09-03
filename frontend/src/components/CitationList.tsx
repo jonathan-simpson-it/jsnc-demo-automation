@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { parseCitation } from "@/lib/utils";
+import RegulatorMark from "@/components/RegulatorMark";
+import { regulatorForFilename } from "@/lib/regulators";
 
 const DEFAULT_PREVIEW = 3;
 
@@ -8,6 +10,32 @@ interface Props {
   citations: string[];
   /** How many sources to show before the "show more" toggle appears. */
   previewCount?: number;
+}
+
+function CitationRow({ index, citation }: { index: number; citation: string }) {
+  const p = parseCitation(citation);
+  const meta = regulatorForFilename(p.filename);
+  return (
+    <div
+      style={{
+        fontSize: "0.76rem",
+        color: "var(--color-muted)",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.45rem",
+      }}
+    >
+      <span style={{ flexShrink: 0 }}>{index + 1}.</span>
+      {meta && (
+        <span style={{ display: "inline-flex", flexShrink: 0 }}>
+          <RegulatorMark code={meta.code} size={12} link={false} />
+        </span>
+      )}
+      <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>
+        {p.filename}, page {p.page}, line {p.line}
+      </span>
+    </div>
+  );
 }
 
 export default function CitationList({
@@ -23,25 +51,9 @@ export default function CitationList({
 
   return (
     <div style={{ display: "grid", gap: "0.2rem" }}>
-      {shown.map((c, i) => {
-        const p = parseCitation(c);
-        return (
-          <div
-            key={i}
-            style={{
-              fontSize: "0.76rem",
-              color: "var(--color-muted)",
-              display: "flex",
-              gap: "0.45rem",
-            }}
-          >
-            <span style={{ flexShrink: 0 }}>{i + 1}.</span>
-            <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>
-              {p.filename}, page {p.page}, line {p.line}
-            </span>
-          </div>
-        );
-      })}
+      {shown.map((c, i) => (
+        <CitationRow key={i} index={i} citation={c} />
+      ))}
       {hasMore && (
         <button
           type="button"
