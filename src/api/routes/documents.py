@@ -3,11 +3,56 @@
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from src.core.database import get_db
-from src.ingestion.loader import load_documents
 from src.ingestion.chunker import chunk_documents
+from src.ingestion.loader import load_documents
+
+UPLOAD_DIR = Path("data/uploads")
+
+
+def _ingest_file(file_path: Path, filename: str) -> tuple[int, str]:
+    """Load, chunk, and index a local file into the vector store.
+
+    Returns (chunk_count, doc_type). Returns (0, "") when the file can't be
+    parsed or has no extractable text — the caller records the row anyway so
+    the user can see the ingestion failed.
+    """
+    try:
+        from src.ingestion.loader import (
+            _infer_doc_type,
+            _load_pdf_with_pages,
+            _load_text_with_lines,
+        )
+
+        if file_path.suffix.lower() == ".pdf":
+            locations = _load_pdf_with_pages(file_path)
+        else:
+            locations = _load_text_with_lines(file_path)
+
+        content_text = "\n\n".join(
+            loc["text"] for loc in locations if loc["text"].strip()
+        )
+        if not content_text.strip():
+            return 0, ""
+
+        doc_type = _infer_doc_type(file_path)
+        doc = {
+            "content": content_text,
+            "metadata": {"source": str(file_path), "filename": filename},
+            "locations": locations,
+            "doc_type": doc_type.value,
+        }
+        chunks = chunk_documents([doc])
+        if not chunks:
+            return 0, ""
+        from src.api.deps import get_vector_store
+        get_vector_store().add_documents(chunks)
+        return len(chunks), doc_type.value
+    except Exception:
+        return 0, ""
 
 router = APIRouter()
 
@@ -55,7 +100,7 @@ async def create_tag(body: TagCreate):
         ).fetchone()
         return dict(row)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     finally:
         db.close()
 
@@ -145,55 +190,32 @@ async def upload_document(
     if not safe_name:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    supported = {".pdf", ".txt", ".md"}
+    supported = {".pdf", ".txt", ".md", ".docx", ".xlsx"}
     if Path(safe_name).suffix.lower() not in supported:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type. Supported: {', '.join(supported)}",
+            detail="Unsupported file type. Supported: PDF, TXT, MD, DOCX, XLSX",
         )
 
-    upload_dir = Path("data/uploads")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / safe_name
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    file_path = UPLOAD_DIR / safe_name
 
     content = await file.read()
     file_path.write_bytes(content)
 
     # Auto-ingest into vector store
-    ingested = 0
-    try:
-        from src.ingestion.loader import _infer_doc_type, _load_text_with_lines, _load_pdf_with_pages
-
-        suffix = file_path.suffix.lower()
-        if suffix == ".pdf":
-            locations = _load_pdf_with_pages(file_path)
-        else:
-            locations = _load_text_with_lines(file_path)
-
-        content_text = "\n\n".join(loc["text"] for loc in locations if loc["text"].strip())
-        if content_text.strip():
-            doc_type = _infer_doc_type(file_path)
-            doc = {
-                "content": content_text,
-                "metadata": {"source": str(file_path), "filename": safe_name},
-                "locations": locations,
-                "doc_type": doc_type.value,
-            }
-            chunks = chunk_documents([doc])
-            from src.api.deps import get_vector_store
-            store = get_vector_store()
-            store.add_documents(chunks)
-            ingested = len(chunks)
-    except Exception:
-        ingested = 0
+    ingested, doc_type = _ingest_file(file_path, safe_name)
 
     # Save to database
     db = get_db()
     try:
         cursor = db.execute(
-            """INSERT INTO documents (filename, chunks, doc_type, client_id, project_id, source)
-               VALUES (?, ?, '', ?, ?, 'upload')""",
-            (safe_name, ingested, client_id, project_id),
+            """
+            INSERT INTO documents
+               (filename, chunks, doc_type, client_id, project_id, source)
+               VALUES (?, ?, ?, ?, ?, 'upload')
+            """,
+            (safe_name, ingested, doc_type, client_id, project_id),
         )
         db.commit()
         doc_id = cursor.lastrowid
@@ -316,7 +338,7 @@ async def get_document_stats():
 
 
 @router.post("/ingest")
-async def ingest_documents():
+async def ingest_documents(client_id: int | None = None, project_id: int | None = None):
     """Ingest all documents from the data directory."""
     data_dir = Path("data/sample")
     if not data_dir.exists():
@@ -325,8 +347,152 @@ async def ingest_documents():
     documents = load_documents(data_dir)
     chunks = chunk_documents(documents)
 
+    from src.api.deps import get_vector_store
+    store = get_vector_store()
+    store.add_documents(chunks)
+
+    # Mirror rows into the documents table so the Documents page lists them.
+    # client_id/project_id optionally attach the files to an isolated namespace.
+    _register_ingested(chunks, client_id=client_id, project_id=project_id)
+
     return {
         "documents_loaded": len(documents),
         "chunks_created": len(chunks),
         "status": "ingested",
     }
+
+
+def _register_ingested(
+    chunks: list[dict],
+    client_id: int | None = None,
+    project_id: int | None = None,
+) -> None:
+    """Insert rows for ingested files that aren't in the documents table yet.
+
+    The UI lists the SQLite ``documents`` table while retrieval hits the vector
+    store; ingestion must mirror rows or files stay invisible on the Documents
+    page. Skips filenames already present so re-ingests are idempotent.
+    """
+    by_filename: dict[str, int] = {}
+    for chunk in chunks:
+        fn = chunk.get("metadata", {}).get("filename", "unknown")
+        by_filename[fn] = by_filename.get(fn, 0) + 1
+
+    db = get_db()
+    try:
+        for fn, n in by_filename.items():
+            row = db.execute(
+                "SELECT id FROM documents WHERE filename = ?", (fn,)
+            ).fetchone()
+            if row:
+                continue
+            db.execute(
+                """INSERT INTO documents
+                      (filename, collection, chunks, doc_type, client_id,
+                       project_id, source)
+                   VALUES (?, 'pe_documents', ?, '', ?, ?, 'ingest')""",
+                (fn, n, client_id, project_id),
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
+# ---- Per-document management: download, re-index, delete ----
+
+
+def _document_row(doc_id: int):
+    """Fetch a document row by id, raising 404 when missing."""
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT * FROM documents WHERE id = ?", (doc_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return dict(row)
+    finally:
+        db.close()
+
+
+@router.get("/{doc_id}/download")
+async def download_document(doc_id: int):
+    """Download the original file for a document."""
+    row = _document_row(doc_id)
+    file_path = UPLOAD_DIR / row["filename"]
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Source file is not available on this server",
+        )
+    return FileResponse(
+        file_path,
+        filename=row["filename"],
+        media_type="application/octet-stream",
+    )
+
+
+@router.post("/{doc_id}/reindex")
+async def reindex_document(doc_id: int):
+    """Re-ingest a document from its stored source file.
+
+    Drops the document's existing vector chunks first, then reloads and
+    re-chunks the file on disk so indexes can't drift from edits.
+    """
+    row = _document_row(doc_id)
+    file_path = UPLOAD_DIR / row["filename"]
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Source file is not available on this server",
+        )
+
+    from src.api.deps import get_vector_store
+    store = get_vector_store()
+    store.delete_document(row["filename"])
+    ingested, doc_type = _ingest_file(file_path, row["filename"])
+
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE documents SET chunks = ?, doc_type = ? WHERE id = ?",
+            (ingested, doc_type, doc_id),
+        )
+        db.commit()
+    finally:
+        db.close()
+    return {
+        "id": doc_id,
+        "filename": row["filename"],
+        "chunks_ingested": ingested,
+        "status": "reindexed",
+    }
+
+
+@router.delete("/{doc_id}")
+async def delete_document(doc_id: int):
+    """Delete a document from the knowledge base.
+
+    Removes the database row (and its tag links) and, when no other document
+    shares the same filename, its vector chunks. Vector cleanup is best-effort
+    so the endpoint stays reliable even when Chroma is unavailable.
+    """
+    row = _document_row(doc_id)
+    db = get_db()
+    try:
+        shares = db.execute(
+            "SELECT COUNT(*) AS n FROM documents WHERE filename = ? AND id != ?",
+            (row["filename"], doc_id),
+        ).fetchone()
+        db.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        db.commit()
+    finally:
+        db.close()
+
+    if shares["n"] == 0:
+        try:
+            from src.api.deps import get_vector_store
+            get_vector_store().delete_document(row["filename"])
+        except Exception:
+            pass
+    return {"deleted": True}
