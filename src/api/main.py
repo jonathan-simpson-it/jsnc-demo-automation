@@ -21,6 +21,7 @@ from src.api.routes.conversations import router as conversations_router
 from src.api.routes.review import router as review_router
 from src.api.routes.telemetry import router as telemetry_router
 from src.api.routes.regulatory import router as regulatory_router
+from src.api.routes.graph_mail import router as graph_mail_router
 from src.vector_store.chroma import VectorStore
 
 
@@ -66,6 +67,7 @@ app.include_router(conversations_router, prefix="/api/conversations", tags=["con
 app.include_router(review_router, prefix="/api/review", tags=["review"])
 app.include_router(telemetry_router, prefix="/api/telemetry", tags=["telemetry"])
 app.include_router(regulatory_router, prefix="/api/regulatory", tags=["regulatory"])
+app.include_router(graph_mail_router, prefix="/api/graph/mail", tags=["graph-mail"])
 
 
 @app.get("/health")

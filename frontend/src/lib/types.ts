@@ -297,3 +297,25 @@ export interface RegulatoryState {
   last_error: string | null;
   running: boolean;
 }
+
+export interface GraphEmail {
+  id: string;
+  subject: string;
+  from: string;
+  from_email: string;
+  received_at: string | null;
+  body_preview: string;
+  web_link: string;
+}
+
+export interface GraphMailStatus {
+  configured: boolean;
+  reason?: string;
+  mailbox?: string;
+}
+
+export interface GraphDraftResult {
+  id: string;
+  subject: string;
+  draft_link: string;
+}

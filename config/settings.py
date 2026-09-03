@@ -42,5 +42,12 @@ class Settings(BaseSettings):
     enable_regulatory_poll: bool = True
     regulatory_poll_hours: int = 24
 
+    # Microsoft Graph mail (list mailbox + create drafts). Application
+    # permissions Mail.Read + Mail.ReadWrite on the Azure app registration.
+    graph_tenant_id: str = ""
+    graph_client_id: str = ""
+    graph_client_secret: str = ""
+    graph_mailbox: str = ""  # userPrincipalName; falls back to OneDrive user
+
 
 settings = Settings()

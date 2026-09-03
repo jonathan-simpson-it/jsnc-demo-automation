@@ -4,6 +4,12 @@ import { generateSummary } from "@/lib/api";
 import type { SummaryResponse } from "@/lib/types";
 import StatCard from "@/components/StatCard";
 import EmailPreview from "@/components/EmailPreview";
+import {
+  createGraphDraft,
+  fetchGraphMail,
+  fetchGraphMailStatus,
+} from "@/lib/api";
+import type { GraphEmail } from "@/lib/types";
 import { formatPercent, formatCount } from "@/lib/utils";
 
 // Shown in the email preview when a period has no activity yet, so the report
@@ -82,6 +88,63 @@ export default function SummaryPage() {
     load("week");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- Microsoft Graph mailbox ---
+  const [mailStatus, setMailStatus] = useState<{ configured: boolean; reason?: string; mailbox?: string } | null>(null);
+  const [mailEmails, setMailEmails] = useState<GraphEmail[]>([]);
+  const [mailLoading, setMailLoading] = useState(false);
+  const [mailError, setMailError] = useState<string | null>(null);
+  const [openEmail, setOpenEmail] = useState<string | null>(null);
+  const [toValue, setToValue] = useState("");
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftMsg, setDraftMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchGraphMailStatus()
+      .then((st) => {
+        if (!alive) return;
+        setMailStatus(st);
+        if (!st.configured) return;
+        setMailLoading(true);
+        fetchGraphMail(30)
+          .then((r) => alive && setMailEmails(r.emails))
+          .catch(() => alive && setMailError("Couldn't load the mailbox."))
+          .finally(() => alive && setMailLoading(false));
+      })
+      .catch(() => alive && setMailStatus({ configured: false, reason: "Graph mail unavailable." }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function handleCreateDraft() {
+    const md = data?.email_markdown ?? EXAMPLE_EMAIL_MD;
+    setDraftBusy(true);
+    setDraftMsg(null);
+    try {
+      const to = toValue
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const res = await createGraphDraft(
+        `${data?.period_label ?? "Weekly"} Platform Report — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+        md,
+        to,
+      );
+      setDraftMsg({
+        ok: true,
+        text: `Draft created${res.draft_link ? " — open it in Outlook to review" : ""}.`,
+      });
+    } catch (e) {
+      setDraftMsg({
+        ok: false,
+        text: e instanceof Error ? e.message : "Couldn't create the draft.",
+      });
+    } finally {
+      setDraftBusy(false);
+    }
+  }
 
   return (
     <section className="section">
@@ -227,63 +290,6 @@ export default function SummaryPage() {
               </div>
             )}
 
-            {/* Recent Queries */}
-            {data.top_queries.length > 0 && (
-              <div>
-                <div className="section-intro">
-                  <span className="section-eyebrow">Queries</span>
-                  <h2>Recent queries.</h2>
-                </div>
-                <div className="panel-card">
-                  {data.top_queries.map((q, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: "0.75rem 0",
-                        borderBottom: "1px solid var(--color-line)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          gap: "0.75rem",
-                        }}
-                      >
-                        <span style={{ fontSize: "0.88rem", fontWeight: 500, flex: 1 }}>
-                          {i + 1}. {q.query}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.74rem",
-                            color: "var(--color-muted)",
-                            flexShrink: 0,
-                            marginTop: "0.15rem",
-                          }}
-                        >
-                          {q.agent}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.78rem",
-                          color: "var(--color-muted)",
-                          marginTop: "0.25rem",
-                        }}
-                      >
-                        {q.confidence
-                          ? `${Math.round(q.confidence * 100)}% confidence`
-                          : ""}
-                        {" -- "}
-                        {q.timestamp.slice(0, 16).replace("T", " ")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Email Preview */}
             <div>
               <div className="section-intro">
@@ -303,6 +309,123 @@ export default function SummaryPage() {
             </div>
           </div>
         )}
+      {/* Microsoft Graph mailbox */}
+      <div className="space-y-6" style={{ marginTop: "1.25rem" }}>
+        <div className="section-intro">
+          <span className="section-eyebrow">Mailbox</span>
+          <h2>Outlook inbox.</h2>
+        </div>
+
+        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(20rem, 1fr))", alignItems: "start" }}>
+          <div className="panel-card" style={{ padding: "1rem 1.1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-muted)" }}>
+                Recent mail
+              </span>
+              {mailStatus?.mailbox && (
+                <span style={{ fontSize: "0.7rem", color: "var(--color-muted)" }}>{mailStatus.mailbox}</span>
+              )}
+            </div>
+            {mailLoading && (
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-muted)" }}>Loading mailbox...</p>
+            )}
+            {!mailLoading && mailError && (
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-error)" }}>{mailError}</p>
+            )}
+            {!mailLoading && mailStatus && !mailStatus.configured && (
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
+                {mailStatus.reason || "Mailbox access is not configured."}
+              </p>
+            )}
+            {!mailLoading && mailStatus?.configured && mailEmails.length === 0 && !mailError && (
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-muted)" }}>
+                No messages in the mailbox yet.
+              </p>
+            )}
+            {mailStatus?.configured && mailEmails.length > 0 && (
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.15rem" }}>
+                {mailEmails.map((email) => (
+                  <li key={email.id} style={{ borderBottom: "1px solid var(--color-line)" }}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenEmail(openEmail === email.id ? null : email.id)}
+                      style={{
+                        width: "100%",
+                        background: "none",
+                        border: "none",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        padding: "0.6rem 0.15rem",
+                        display: "grid",
+                        gap: "0.15rem",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.86rem", fontWeight: 600, color: "var(--color-ink)", overflowWrap: "anywhere" }}>
+                        {email.subject || "(no subject)"}
+                      </span>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
+                        {email.from}
+                        {email.received_at ? " · " + new Date(email.received_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                      </span>
+                    </button>
+                    {openEmail === email.id && (
+                      <div style={{ padding: "0 0.4rem 0.7rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
+                        {email.body_preview || "No preview."}
+                        {email.web_link && (
+                          <div style={{ marginTop: "0.4rem" }}>
+                            <a href={email.web_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.78rem", color: "var(--color-accent)" }}>
+                              Open in Outlook ↗
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="panel-card" style={{ padding: "1rem 1.1rem" }}>
+            <div className="section-intro" style={{ marginBottom: "0.5rem" }}>
+              <span className="section-eyebrow">Draft</span>
+              <h2 style={{ fontSize: "1.1rem", margin: 0 }}>Send report as draft</h2>
+            </div>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
+              Creates a draft of the current {data?.period_label?.toLowerCase() ?? "weekly"} report in the
+              connected mailbox's Drafts folder. Nothing is sent until you send it.
+            </p>
+            <input
+              className="input"
+              style={{ width: "100%", marginBottom: "0.6rem" }}
+              placeholder="To (optional, comma separated)"
+              value={toValue}
+              onChange={(e) => setToValue(e.target.value)}
+              disabled={!mailStatus?.configured || draftBusy}
+            />
+            <button
+              type="button"
+              className="button"
+              style={{ width: "100%" }}
+              onClick={handleCreateDraft}
+              disabled={!mailStatus?.configured || draftBusy}
+            >
+              {draftBusy ? "Creating draft..." : "Create draft"}
+            </button>
+            {draftMsg && (
+              <p style={{ margin: "0.7rem 0 0", fontSize: "0.8rem", lineHeight: 1.45, color: draftMsg.ok ? "var(--color-accent)" : "var(--color-error)" }}>
+                {draftMsg.text}
+              </p>
+            )}
+            {!mailStatus?.configured && (
+              <p style={{ margin: "0.7rem 0 0", fontSize: "0.76rem", color: "var(--color-muted)", lineHeight: 1.5 }}>
+                Configure GRAPH_TENANT_ID / GRAPH_CLIENT_ID / GRAPH_CLIENT_SECRET (Mail.Read +
+                Mail.ReadWrite) in .env to enable drafts.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
       </div>
     </section>
   );

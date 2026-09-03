@@ -8,6 +8,9 @@ import type {
   CostSummary,
   DocumentStats,
   EvalResults,
+  GraphDraftResult,
+  GraphEmail,
+  GraphMailStatus,
   HealthStatus,
   OneDriveFile,
   OneDriveStatus,
@@ -351,3 +354,19 @@ export const fetchRegulatoryStatus = () =>
   apiFetch<RegulatoryState>("/api/regulatory/status");
 export const pollRegulatory = () =>
   apiFetch<RegulatoryState>("/api/regulatory/poll", { method: "POST" });
+
+/* ---- Microsoft Graph mail ---- */
+
+export const fetchGraphMailStatus = () =>
+  apiFetch<GraphMailStatus>("/api/graph/mail/status");
+export const fetchGraphMail = (limit = 50) =>
+  apiFetch<{ emails: GraphEmail[] }>(`/api/graph/mail/messages?limit=${limit}`);
+export const createGraphDraft = (
+  subject: string,
+  body: string,
+  to: string[] = [],
+) =>
+  apiFetch<GraphDraftResult>("/api/graph/mail/drafts", {
+    method: "POST",
+    body: JSON.stringify({ subject, body, to }),
+  });
