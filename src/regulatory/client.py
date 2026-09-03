@@ -31,6 +31,11 @@ DEFAULT_FIXTURE_DIR = "tests/fixtures/regulatory"
 
 # SFC API base discovered from the site's own bundle.
 SFC_API_BASE = "https://apps.sfc.hk/edistributionWeb"
+# Canonical SFC website page for a news item (the SPA article route the site
+# itself links to); the API is used only to fetch content for ingestion.
+SFC_NEWS_PAGE = (
+    "https://apps.sfc.hk/edistributionWeb/gateway/EN/news-and-announcements/news/doc"
+)
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -292,7 +297,7 @@ def _fetch_sfc_api(source: RegulatorySource, http_post) -> list[dict]:
                 {
                     "external_id": ref_no,
                     "title": title,
-                    "url": f"{SFC_API_BASE}/api/news/content?refNo={ref_no}&lang=EN",
+                    "url": f"{SFC_NEWS_PAGE}?refNo={ref_no}",
                     "issued_at": date or None,
                 }
             )
@@ -446,31 +451,43 @@ def fetch_item_text(
 ) -> str:
     """Return cleaned article text for an item URL.
 
-    SFC API content URLs return JSON with an "html" field; media PDFs (e.g.
-    high-shareholding notices) are read with pypdf; everything else is treated
-    as a plain HTML page. Offline => load a <slug>.html fixture when one
-    exists, else fall back to the bare title so ingest still records the item.
+    Feed rows link to the human SFC website page (…/news/doc?refNo=…) but the
+    body is server-rendered by the SPA only, so content is fetched from the
+    content API behind the scenes. Direct API URLs, media PDFs (pypdf) and
+    plain HTML pages are handled too. Offline => fixture by slug, else the
+    bare title so ingest still records the item.
     """
+    ref_match = re.search(r"[?&]refNo=([A-Z0-9]+)", url)
+    api_content_url = None
+    if ref_match and "/news/doc" in url:
+        api_content_url = (
+            f"{SFC_API_BASE}/api/news/content?refNo={ref_match.group(1)}&lang=EN"
+        )
     http_get = _http_get or _http_get_text
     try:
-        if _http_get is None and ("/-/media/" in url or url.lower().endswith(".pdf")):
-            raw_bytes = _http_get_bytes(url)
-            if raw_bytes[:5] == b"%PDF-":
-                pdf_text = _pdf_text(raw_bytes)
-                if pdf_text:
-                    return _clean_html(pdf_text)
-            raw = raw_bytes.decode("utf-8", errors="ignore")
+        if api_content_url is not None and _http_get is None:
+            data = json.loads(_http_get_text(api_content_url))
+            text = _clean_html(data.get("html") or "")
         else:
-            raw = http_get(url)
-        text = ""
-        if "/edistributionWeb/api/" in url:
-            try:
-                data = json.loads(raw)
-                text = _clean_html(data.get("html") or "")
-            except Exception:
-                text = _clean_html(raw)
-        else:
-            text = _clean_html(_main_region_html(raw))
+            target = api_content_url if api_content_url is not None else url
+            if _http_get is None and ("/-/media/" in target or target.lower().endswith(".pdf")):
+                raw_bytes = _http_get_bytes(target)
+                if raw_bytes[:5] == b"%PDF-":
+                    pdf_text = _pdf_text(raw_bytes)
+                    if pdf_text:
+                        return _clean_html(pdf_text)
+                raw = raw_bytes.decode("utf-8", errors="ignore")
+            else:
+                raw = http_get(target)
+            text = ""
+            if "/edistributionWeb/api/" in target:
+                try:
+                    data = json.loads(raw)
+                    text = _clean_html(data.get("html") or "")
+                except Exception:
+                    text = _clean_html(raw)
+            else:
+                text = _clean_html(_main_region_html(raw))
         if text:
             return text
     except Exception:

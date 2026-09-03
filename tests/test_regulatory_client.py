@@ -73,7 +73,7 @@ def test_sfc_api_listing_mapping():
     assert items[0]["external_id"] == "26PR111"
     assert items[0]["title"] == "Court sentences former broker"
     assert items[0]["issued_at"] == "2026-09-01"
-    assert "/api/news/content?refNo=26PR111" in items[0]["url"]
+    assert items[0]["url"].endswith("news/doc?refNo=26PR111")
 
 
 def test_sfc_api_offline_returns_empty():
@@ -135,3 +135,23 @@ def test_sfc_api_item_text_parses_json_html():
 
     text = fetch_item_text(url, source, BASE, _http_get=fake_get)
     assert "Licensing action taken." == text
+
+
+def test_sfc_website_article_url_resolves_to_content_api():
+    """Feed rows point at the SFC website; content comes from the API."""
+    from src.regulatory.sources import source_by_key
+
+    source = source_by_key("sfc_news")
+    url = (
+        "https://apps.sfc.hk/edistributionWeb/gateway/EN/"
+        "news-and-announcements/news/doc?refNo=26PR2"
+    )
+    seen = []
+
+    def fake_get(u):
+        seen.append(u)
+        return '{"newsRefNo":"26PR2","html":"<p>Website article body.</p>"}'
+
+    text = fetch_item_text(url, source, BASE, _http_get=fake_get)
+    assert text == "Website article body."
+    assert seen and seen[0].endswith("/api/news/content?refNo=26PR2&lang=EN")
