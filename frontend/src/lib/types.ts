@@ -185,6 +185,7 @@ export interface SummaryResponse {
 export interface HealthStatus {
   status: string;
   version: string;
+  server_key_configured: boolean;
 }
 
 export interface TraceEntry {

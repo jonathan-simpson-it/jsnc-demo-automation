@@ -22,11 +22,12 @@ import type {
   TelemetryRun,
   UploadResult,
 } from "./types";
+import { apiHeaders, getApiKey } from "./api-key";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", ...apiHeaders(), ...init?.headers },
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
   return res.json();
@@ -67,7 +68,7 @@ export async function* streamAgent(
 ): AsyncGenerator<StreamEvent> {
   const res = await fetch("/api/agents/execute/stream", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...apiHeaders() },
     body: JSON.stringify(query),
   });
   if (!res.ok) throw new Error(`Stream ${res.status}`);
@@ -165,6 +166,7 @@ export async function uploadDocument(
 
     const fd = new FormData();
     fd.append("file", file);
+    xhr.setRequestHeader("X-API-Key", getApiKey());
     xhr.send(fd);
   });
 }
