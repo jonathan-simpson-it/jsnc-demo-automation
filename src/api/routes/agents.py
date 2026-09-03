@@ -10,10 +10,22 @@ from config.settings import settings
 from src.api.deps import get_router_agent
 from src.core import database as db
 from src.core.models import AgentQuery
+from src.utils.api_key import ApiKeyMissingError, resolve_api_key
 from src.utils.cost_tracker import cost_tracker
 from src.utils.telemetry import run_log
 
 router = APIRouter()
+
+
+def _require_api_key() -> None:
+    """Fail fast with a structured 402 before any LLM work starts."""
+    try:
+        resolve_api_key()
+    except ApiKeyMissingError as exc:
+        raise HTTPException(
+            status_code=402,
+            detail={"code": "missing_api_key", "message": str(exc)},
+        )
 
 
 def _push_run(query, response, cost_before: float) -> None:
@@ -202,6 +214,7 @@ async def execute_agent(query: AgentQuery):
     Returns:
         Agent execution result.
     """
+    _require_api_key()
     try:
         router_agent = get_router_agent()
         conv, history, allowed = _conversation_context(
@@ -242,8 +255,9 @@ async def execute_agent_stream(query: AgentQuery):
 
     Each event is a JSON object with a "node" field (the pipeline step)
     and an "update" field (the state update from that node). The final
-    event has "done": true and a "response" field with the full result.
+    event     has "done": true and a "response" field with the full result.
     """
+    _require_api_key()
     router_agent = get_router_agent()
     conv, history, allowed = _conversation_context(
         query.conversation_id, query.project_id
