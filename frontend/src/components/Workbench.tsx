@@ -28,7 +28,7 @@ export function WorkbenchPage({
 }: {
   eyebrow: string;
   title: string;
-  description: string;
+  description: ReactNode;
   children: ReactNode;
 }) {
   return (

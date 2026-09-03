@@ -45,7 +45,7 @@ export default function RegulatorMark({
   const inner = (
     <>
       {mark}
-      {withName && (
+      {withName && showLogo && (
         <span className="reg-mark-name">{meta ? meta.code : code}</span>
       )}
     </>

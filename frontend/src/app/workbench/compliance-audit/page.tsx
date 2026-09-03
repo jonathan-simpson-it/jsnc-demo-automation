@@ -2,6 +2,8 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { WorkbenchPage, DocumentPicker, ResultPanel } from "@/components/Workbench";
+import RegulatorMark from "@/components/RegulatorMark";
+import { regulatorInText } from "@/lib/regulators";
 import { executeAgent } from "@/lib/api";
 import type { AgentResponse, DocumentInfo } from "@/lib/types";
 
@@ -75,6 +77,16 @@ function asIssue(value: unknown): AuditIssue | null {
   return null;
 }
 
+function RegChip({ reg }: { reg: unknown }) {
+  const meta = regulatorInText(String(reg));
+  return (
+    <span className="chip" style={{ alignItems: "center", gap: "0.4rem" }}>
+      {meta && <RegulatorMark code={meta.code} size={14} link={false} />}
+      {String(reg)}
+    </span>
+  );
+}
+
 export default function ComplianceAuditWorkbenchPage() {
   const [doc, setDoc] = useState<DocumentInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,7 +130,24 @@ export default function ComplianceAuditWorkbenchPage() {
     <WorkbenchPage
       eyebrow="Compliance & Risk"
       title="Compliance auditor."
-      description="Audit documents against regulatory expectations — SFC, HKMA and AMLO-aware checks grounded in the knowledge base."
+      description={
+        <>
+          Audit documents against the expectations your regulators actually publish — SFC, HKMA and AMLO-aware checks, grounded in this workspace's documents, with cited findings and required corrective actions.
+          <span
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.6rem",
+            }}
+          >
+            <RegulatorMark code="SFC" withName />
+            <RegulatorMark code="HKMA" withName />
+            <RegulatorMark code="AMLO" withName />
+          </span>
+        </>
+      }
     >
       <DocumentPicker onSelect={setDoc} />
 
@@ -146,7 +175,7 @@ export default function ComplianceAuditWorkbenchPage() {
 
       {loading && (
         <p style={{ margin: "1rem 0 0 0", fontSize: "0.85rem", color: "var(--color-muted)" }}>
-          Checking the document against SFC, HKMA and AMLO expectations…
+          Running the audit against SFC, HKMA and AMLO expectations…
         </p>
       )}
 
@@ -313,9 +342,7 @@ export default function ComplianceAuditWorkbenchPage() {
               </h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
                 {regulations.map((reg, i) => (
-                  <span key={i} className="chip">
-                    {String(reg)}
-                  </span>
+                  <RegChip key={i} reg={reg} />
                 ))}
               </div>
             </div>
