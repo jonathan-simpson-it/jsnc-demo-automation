@@ -4,6 +4,7 @@ import { fetchHealth } from "@/lib/api";
 import type { HealthStatus } from "@/lib/types";
 import { appsByCategory } from "@/lib/apps";
 import { LaunchpadSection } from "@/components/Launchpad";
+import HomeDashboard from "@/components/HomeDashboard";
 import PitchBand from "@/components/PitchBand";
 
 export default function Home() {
@@ -24,7 +25,7 @@ export default function Home() {
 
   return (
     <section className="section">
-      <div className="container" style={{ maxWidth: "56rem" }}>
+      <div className="container" style={{ maxWidth: "68rem" }}>
         {/* Logo + Title */}
         <div style={{ textAlign: "center", marginBottom: "clamp(2.5rem, 5vw, 3.5rem)" }}>
           <img src="/jsco-logo.png" alt="" width={72} height={72} style={{ borderRadius: "50%", objectFit: "cover", marginBottom: "1rem" }} />
@@ -74,6 +75,11 @@ export default function Home() {
             />
             <span>{status.label}</span>
           </div>
+        </div>
+
+        {/* Calendar + latest dashboard */}
+        <div style={{ marginBottom: "clamp(2.5rem, 5vw, 3.5rem)" }}>
+          <HomeDashboard />
         </div>
 
         {/* Launchpad */}
