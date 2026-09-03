@@ -33,7 +33,7 @@ def _summary_lines(summary: dict) -> list[str]:
     lines = []
     total = summary.get("total_queries") or 0
     if total == 0:
-        lines.append("No platform activity was recorded in this period.")
+        lines.append("No activity was recorded in this period.")
         return lines
     avg = summary.get("avg_confidence") or 0
     lines.append(f"Total queries processed: {total}")
