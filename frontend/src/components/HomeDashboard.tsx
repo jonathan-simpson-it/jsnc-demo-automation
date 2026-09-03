@@ -199,15 +199,15 @@ export default function HomeDashboard() {
     width: "1.7rem",
     height: "1.7rem",
     padding: 0,
-    borderRadius: "999px",
-    border: "none",
-    background: "var(--color-accent-soft)",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--color-line)",
+    background: "var(--color-surface)",
     color: "var(--color-ink)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
-    fontSize: "1.05rem",
+    fontSize: "1rem",
     lineHeight: 1,
     flexShrink: 0,
   };
@@ -347,7 +347,7 @@ export default function HomeDashboard() {
               month: "short",
               day: "numeric",
               year: "numeric",
-            })} — ${counts.join(", ")}`;
+            })}: ${counts.join(", ")}`;
             return (
               <button
                 key={cell.key}
@@ -364,7 +364,7 @@ export default function HomeDashboard() {
                   justifyContent: "center",
                   gap: "0.1rem",
                   fontSize: "0.74rem",
-                  borderRadius: "var(--radius-md)",
+                  borderRadius: "var(--radius-xs)",
                   border: "none",
                   cursor: has ? "pointer" : "default",
                   color: cell.inMonth
@@ -386,15 +386,15 @@ export default function HomeDashboard() {
                       display: "flex",
                       gap: "0.14rem",
                       alignItems: "center",
-                      height: "0.35rem",
+                      height: "0.3rem",
                     }}
                   >
                     {cell.radar.length > 0 && (
                       <span
                         style={{
-                          width: "0.35rem",
-                          height: "0.35rem",
-                          borderRadius: "999px",
+                          width: "0.3rem",
+                          height: "0.3rem",
+                          borderRadius: "0.06rem",
                           background: isSel ? "var(--color-bg)" : "var(--color-accent)",
                         }}
                       />
@@ -402,10 +402,10 @@ export default function HomeDashboard() {
                     {cell.mail.length > 0 && (
                       <span
                         style={{
-                          width: "0.35rem",
-                          height: "0.35rem",
-                          borderRadius: "999px",
-                          background: isSel ? "var(--color-bg)" : "var(--color-ink)",
+                          width: "0.3rem",
+                          height: "0.3rem",
+                          borderRadius: "0.06rem",
+                          background: isSel ? "var(--color-bg)" : "var(--color-ok)",
                         }}
                       />
                     )}
@@ -614,7 +614,7 @@ export default function HomeDashboard() {
             <ul
               style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.5rem" }}
             >
-              {inboxEmails.map((email) => (
+              {inboxEmails.slice(0, 1).map((email) => (
                 <li key={email.id} style={{ fontSize: "0.82rem", lineHeight: 1.4, minWidth: 0 }}>
                   <a
                     href={email.web_link}
@@ -659,7 +659,7 @@ export default function HomeDashboard() {
                 lineHeight: 1.5,
               }}
             >
-              Demo mail — connect an Outlook mailbox via GRAPH_* to see real messages.
+              Demo mail. Connect an Outlook mailbox via GRAPH_* to see real messages.
             </p>
           )}
         </div>
@@ -674,8 +674,9 @@ export default function HomeDashboard() {
               Nothing on the radar yet.
             </p>
           ) : (
+            <>
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.55rem" }}>
-              {latest.map((item) => (
+              {latest.slice(0, 1).map((item) => (
                 <li key={item.id} style={{ fontSize: "0.82rem", lineHeight: 1.4 }}>
                   <a
                     href={item.url}
@@ -692,6 +693,19 @@ export default function HomeDashboard() {
                 </li>
               ))}
             </ul>
+            <a
+              href="/radar"
+              style={{
+                display: "inline-block",
+                marginTop: "0.6rem",
+                fontSize: "0.72rem",
+                color: "var(--color-accent)",
+                textDecoration: "none",
+              }}
+            >
+              View all on Radar →
+            </a>
+            </>
           )}
         </div>
 
@@ -703,11 +717,11 @@ export default function HomeDashboard() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
               <div>
-                <div style={{ fontSize: "1.35rem", fontWeight: 600 }}>{report.total_queries}</div>
+                <div className="tnum" style={{ fontSize: "1.35rem", fontWeight: 600 }}>{report.total_queries}</div>
                 <div style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>queries</div>
               </div>
               <div>
-                <div style={{ fontSize: "1.35rem", fontWeight: 600 }}>
+                <div className="tnum" style={{ fontSize: "1.35rem", fontWeight: 600 }}>
                   {Math.round((report.avg_confidence ?? 0) * 100)}%
                 </div>
                 <div style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>avg confidence</div>
