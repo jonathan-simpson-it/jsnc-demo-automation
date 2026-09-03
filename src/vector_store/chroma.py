@@ -178,24 +178,30 @@ class VectorStore:
         k: int = 4,
         filter_doc_type: str | None = None,
         source_filter: str | None = None,
+        filenames: set[str] | None = None,
     ) -> list[dict]:
         """Search for similar documents.
 
         Args:
             query: Search query string.
             k: Number of results to return.
-            filter_doc_type: Optional filter by document type.
+            filter_doc_type: Optional filter by document type (unused).
             source_filter: Optional filename to scope search to a specific document.
+            filenames: Optional set of filenames to restrict retrieval to
+                (project isolation). When set, the global collection is never
+                used as a fallback, so results can never leak across scopes.
 
         Returns:
             List of result dicts with content, metadata, and score.
         """
         # If source_filter is specified, search only that document's collection
         if source_filter:
+            if filenames is not None and source_filter not in filenames:
+                return []
             return self._search_single(query, source_filter, k)
 
-        # Otherwise search all per-document collections and merge
-        return self._search_all(query, k)
+        # Otherwise search all per-document collections (optionally scoped) and merge
+        return self._search_all(query, k, filenames=filenames)
 
     def _search_single(self, query: str, filename: str, k: int) -> list[dict]:
         """Search within a single document's collection."""
@@ -210,13 +216,32 @@ class VectorStore:
             for doc, score in results
         ]
 
-    def _search_all(self, query: str, k: int) -> list[dict]:
-        """Search across all per-document collections and merge results.
+    def _scope_collection_names(self, filenames: set[str] | None) -> set[str] | None:
+        """Map raw filenames to their sanitized collection names (None = all)."""
+        if filenames is None:
+            return None
+        return {_sanitize_collection_name(f) for f in filenames}
 
+    def _search_all(
+        self,
+        query: str,
+        k: int,
+        filenames: set[str] | None = None,
+    ) -> list[dict]:
+        """Search across per-document collections and merge results.
+
+        With ``filenames`` set, only collections for those documents are
+        searched and the global fallback is disabled (strict project scope).
         Returns top-k results with fair representation across documents.
         """
         doc_collections = self._list_doc_collections()
-        if not doc_collections:
+        if filenames is not None:
+            scope_names = self._scope_collection_names(filenames)
+            doc_collections = [c for c in doc_collections if c in scope_names]
+            # Strict scope: never fall back to the global collection
+            if not doc_collections:
+                return []
+        elif not doc_collections:
             return self._search_global(query, k)
 
         # Search each collection, returning up to min(5, collection_size) results
@@ -241,6 +266,8 @@ class VectorStore:
                 continue
 
         if not all_results:
+            if filenames is not None:
+                return []
             return self._search_global(query, k)
 
         # Sort by score and deduplicate

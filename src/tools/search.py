@@ -318,15 +318,22 @@ _DOC_SIGNALS: dict[str, tuple[dict[str, int], dict[str, int]]] = {
 }
 
 
-def _detect_document(query: str, vector_store: VectorStore) -> str | None:
+def _detect_document(
+    query: str,
+    vector_store: VectorStore,
+    allowed_filenames: list[str] | None = None,
+) -> str | None:
     """Detect which document the query is about based on keyword matching.
 
     Uses weighted positive signals and negative signals. Returns the filename
-    if a specific document is confidently detected, None otherwise.
+    if a specific document is confidently detected, None otherwise. When
+    ``allowed_filenames`` is set, detection only ever picks documents inside
+    that retrieval scope.
 
     Args:
         query: User query.
         vector_store: Vector store to list available documents.
+        allowed_filenames: Optional filenames the scope permits.
 
     Returns:
         Filename if a specific document is detected, None otherwise.
@@ -334,6 +341,12 @@ def _detect_document(query: str, vector_store: VectorStore) -> str | None:
     documents = vector_store.list_documents()
     if not documents:
         return None
+
+    allowed = set(allowed_filenames) if allowed_filenames is not None else None
+    if allowed is not None:
+        documents = [d for d in documents if d["filename"] in allowed]
+        if not documents:
+            return None
 
     query_lower = query.lower()
 
@@ -473,15 +486,62 @@ def _rewrite_query_llm(query: str) -> str:
         return query
 
 
-def create_search_tool(vector_store: VectorStore):
+def _apply_recency(results: list[dict]) -> list[dict]:
+    """Temporal recency weighting for regulatory results.
+
+    Results carrying regulator metadata + an issuance_date get their score
+    multiplied by a decay factor (>=0.5) based on document age, so recent
+    circulars outrank stale ones at equal similarity. Non-regulatory results
+    are untouched (factor 1.0).
+    """
+    import calendar
+    from datetime import date, datetime
+
+    months = {m: i for i, m in enumerate(calendar.month_abbr) if m}
+
+    def parse_date(raw: str) -> date | None:
+        raw = (raw or "").strip()
+        for fmt in ("%Y-%m-%d", "%d %b %Y", "%b %d %Y"):
+            try:
+                return datetime.strptime(raw, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    for r in results:
+        meta = r.get("metadata") or {}
+        if "regulator" not in meta:
+            continue
+        parsed = parse_date(meta.get("issuance_date") or "")
+        if parsed is None:
+            continue
+        age_days = (date.today() - parsed).days
+        decay = max(0.5, 1 - age_days / 3650)
+        base = r.get("hybrid_score", 1.0 - (r["score"] / MAX_DISTANCE)) if MAX_DISTANCE > 0 else r.get("hybrid_score", 1.0)
+        r["hybrid_score"] = base * decay
+        r["_recency_decay"] = decay
+    # Rank decayed results so recent circulars actually outrank stale ones.
+    if any("_recency_decay" in r for r in results):
+        results.sort(key=lambda r: r.get("hybrid_score", 0), reverse=True)
+    return results
+
+
+def create_search_tool(
+    vector_store: VectorStore,
+    allowed_filenames: list[str] | None = None,
+):
     """Create a LangChain tool for searching PE documents.
 
     Args:
         vector_store: The vector store instance to search against.
+        allowed_filenames: Optional retrieval scope. When set, only these
+            documents may be retrieved (project isolation); when an empty
+            list, the scope has no documents and the tool says so explicitly.
 
     Returns:
         LangChain tool for document search.
     """
+    scope = set(allowed_filenames) if allowed_filenames is not None else None
 
     @tool
     def search_pe_documents(query: str) -> str:
@@ -505,33 +565,44 @@ def create_search_tool(vector_store: VectorStore):
         query = _rewrite_query_llm(query)
         variants = _query_variants(query)
 
+        # A scope with no documents: say so honestly instead of hallucinating.
+        if scope is not None and not scope:
+            return (
+                "No documents are assigned to the current project scope. "
+                "Upload documents and assign them to this project (Documents page) "
+                "before asking questions about it."
+            )
+
         # Detect if query is about a specific document
-        target_doc = _detect_document(query, vector_store)
+        target_doc = _detect_document(query, vector_store, allowed_filenames)
         detected = target_doc is not None
 
         if target_doc:
             # Search only that document's collection — use higher k for small docs
-            results = vector_store.search(query, k=20, source_filter=target_doc)
+            results = vector_store.search(query, k=20, source_filter=target_doc, filenames=scope)
             for variant in variants:
-                variant_results = vector_store.search(variant, k=20, source_filter=target_doc)
+                variant_results = vector_store.search(
+                    variant, k=20, source_filter=target_doc, filenames=scope
+                )
                 seen_contents = {r['content'][:100] for r in results}
                 for vr in variant_results:
                     if vr['content'][:100] not in seen_contents:
                         results.append(vr)
                         seen_contents.add(vr['content'][:100])
 
-            # If nothing relevant found in the detected doc, fall back to global search
+            # If nothing relevant found in the detected doc, fall back to a
+            # scope-wide search (never outside the scope)
             if not any(r['score'] <= MAX_DISTANCE for r in results):
                 target_doc = None
 
         if not target_doc:
-            # Search all collections
-            results = vector_store.search(query, k=10)
+            # Search all collections (restricted to the scope when set)
+            results = vector_store.search(query, k=10, filenames=scope)
 
             # Also search with extracted keywords for better coverage
             keywords = _extract_keywords(query)
             if keywords != query.strip():
-                keyword_results = vector_store.search(keywords, k=10)
+                keyword_results = vector_store.search(keywords, k=10, filenames=scope)
                 seen_contents = {r['content'][:100] for r in results}
                 for kr in keyword_results:
                     if kr['content'][:100] not in seen_contents:
@@ -544,7 +615,7 @@ def create_search_tool(vector_store: VectorStore):
                 seen_contents = {r['content'][:100] for r in results}
                 with ThreadPoolExecutor(max_workers=min(len(variants), 4)) as pool:
                     futures = {
-                        pool.submit(vector_store.search, v, 10): v
+                        pool.submit(vector_store.search, v, 10, filenames=scope): v
                         for v in variants
                     }
                     for future in as_completed(futures):
@@ -572,6 +643,11 @@ def create_search_tool(vector_store: VectorStore):
                     vector_norm = 1.0 - (r["score"] / MAX_DISTANCE) if MAX_DISTANCE > 0 else 0.0
                     r["hybrid_score"] = 0.6 * vector_norm + 0.4 * bm25_norm
                 results.sort(key=lambda r: r.get("hybrid_score", 0), reverse=True)
+
+        # Temporal recency: recent regulatory circulars beat stale equals.
+        _apply_recency(results)
+        if any("_recency_decay" in r for r in results):
+            results.sort(key=lambda r: r.get("hybrid_score", 0), reverse=True)
 
         results = results[:16 if detected else 10]
 
