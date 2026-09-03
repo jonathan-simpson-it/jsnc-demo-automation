@@ -820,6 +820,121 @@ cd frontend && npx next build
 
 ---
 
+## Features Added (Detailed)
+
+### 1. Documentation & Configuration
+- **README overhaul**: Rewrote architecture diagram in Mermaid format; added "Advanced Backend Capabilities" section with full database storage schema (`audit.db`, `rbac.db`, `model_versions.db`, `llm_cache.db`); refined all section text for clarity; added `.env.example` with new environment variables for all subsystems.
+- **Config updates**: Added database path configurations for audit, RBAC, model versions, and LLM cache stores.
+
+### 2. Chat Experience Overhaul (frontend/src/app/chat/page.tsx)
+- **Interactive suggestion chips**: Agent-specific suggested questions on the welcome message that update live when the agent selector changes; clicking sends immediately.
+- **Agent-aware input**: Placeholder text names the selected agent; empty-state guides first-time users to try a chip.
+- **Live pipeline status**: Chat header shows current graph node ("Classifying query", "Searching documents", etc.) with animated 3-dot indicator.
+- **Streaming feedback**: Animated dots in send button and a "thinking" bubble during in-flight requests.
+- **Friendly error handling**: Backend 500s, auth failures (401/403), network failures mapped to actionable messages (e.g., "Make sure `DEEPSEEK_API_KEY` is configured"); streams with no final response show rephrase-and-retry hints.
+- **Conversation context**: Last 6 messages sent with each query for follow-up grounding.
+
+### 3. OneDrive Import — Live Per-File Progress (frontend/src/app/documents/page.tsx)
+- **Replaced single spinner with row array**: `odImports` array (`fileId`, `filename`, `status`, `message`) tracks multiple concurrent imports independently; derived `odImportingIds` set for button state.
+- **Live-updating import rows**: Streaming dots while importing; status dot (green for success, red for error) when complete; filename display; sub-message line with chunk count on success (`"3 chunks ingested"`) or cleaned error text.
+- **Button state**: Disabled + "Importing..." label during in-flight import per file; duplicate import for same file blocked; different files can import concurrently.
+- **New "Import status" panel**: Appears below file browser only when rows exist; shows numbered index badges, colored dots, filenames with sub-messages, uppercase colored status labels (`importing`/`success`/`error`); active row highlighted with accent-soft/accent-border background (mirrors local upload treatment).
+- **Guard logic**: `handleOdImport` creates import row immediately, updates on response (`chunks_ingested`) or error (`message.slice(0,140)`), then calls `bump()` only on success.
+
+### 4. Frontend Pages & Components
+- **Chat page**: Full overhaul with streaming UI, error states, agent selection, and pipeline tracking.
+- **Documents page**: Client/project workspace tree with per-project RAG isolation; upload queue with live progress; OneDrive tab; tag/drop management; inline CRUD.
+- **Config page** (`frontend/src/app/config/page.tsx`): System status, feature flags, agent list, environment info.
+- **Eval page** (`frontend/src/app/eval/page.tsx`): Accuracy dashboard with filters and per-document breakdown.
+- **Summary page** (`frontend/src/app/summary/page.tsx`): Email preview and period-based reports from audit trail.
+- **Root page** (`frontend/src/app/page.tsx`): Launchpad grid driven by registry.
+- **Components updated**: `ChatMessage` (message bubbles, citations, agent labels), `Header` (navigation, skip-link, brand mark), `PipelineInspector` (expanded panel with confidence bar, timing bars, node status), `StatusBadge` (health indicator with tooltip).
+
+### 5. Frontend Library Updates
+- **`frontend/src/lib/api.ts`**: Added endpoints for `fetchOneDriveStatus`, `fetchOneDriveFiles`, `importFromOneDrive`, `connectOneDrive`, `disconnectOneDrive`, regulatory feed, review queue, and telemetry; full SSE async generator for agent streaming.
+- **`frontend/src/lib/types.ts`**: Added TypeScript interfaces for `UploadResult`, `OneDriveFile`, `OneDriveStatus`, `RegulatoryItem`, `ReviewTask`, `AuditLog`, `RBACPolicy`, `Client`, `Project`, `Tag`, and conversation structures.
+- **`frontend/src/lib/apps.tsx`**: Launchpad registry (`LaunchpadApp`, `AppCategory`, `LAUNCHPAD_APPS`, `appsByCategory()`).
+- **`frontend/src/lib/utils.ts`**: Citation parser, trace summary, formatting utilities (`parseCitation`, `traceSummary`, `formatMs`, `cn`).
+
+### 6. Backend API Routes (new and expanded)
+- **`/api/agents/*`**: Agent execution (streaming and non-streaming) with SSE events for pipeline node tracking.
+- **`/api/documents/*`**: Full document management — upload (`POST /upload`), ingestion (`POST /ingest`), listing (`GET /list`), stats (`GET /stats`), assignment (`PUT /{id}/assign`), tags (`GET /tags`, `POST /tags`, `POST /{id}/tags`, `DELETE /{id}/tags/{tag_id}`), and document-level CRUD.
+- **`/api/clients`**: Client CRUD.
+- **`/api/projects`**: Project CRUD with optional `client_id` filter.
+- **`/api/onedrive/*`**: OAuth status, connect/callback, file browser (`GET /files`), import (`POST /import`), disconnect.
+- **`/api/conversations/*`**: Chat history with server-side persistence (`GET /`, `POST /`, `DELETE /{id}`), messages (`GET /{id}/messages`), multi-turn context.
+- **`/api/review/*`**: Human-in-the-loop review queue (`GET /queue`), approve (`POST /{id}/approve`), edit-approve (replaces answer), reject (`POST /{id}/reject`); answers queued from rescue/low-confidence/error states.
+- **`/api/telemetry/*`**: Pipeline runs (`GET /runs`), token/cost summary (`GET /cost`), reset (`POST /reset`).
+- **`/api/regulatory/*`**: Feed status (`GET /status`), ingested items (`GET /feed`), manual poll (`POST /poll`), daily async scheduling.
+- **`/api/summary`**: Email summary generation (`POST /summary`) with period-based audit trail reports.
+- **`/api/eval/results`**: Evaluation dashboard data.
+
+### 7. Backend Main App (`src/api/main.py`)
+- Registers all new routers (agents, documents, conversations, regulatory, review, telemetry).
+- Adds CORS configuration for frontend origin.
+- Includes request logging and error handling middleware.
+- Configures static file serving for uploaded documents.
+
+### 8. Core Database & Models (`src/core/`)
+- **`database.py`**: Multi-database connection pools (`audit.db`, `rbac.db`, `model_versions.db`, `llm_cache.db`) with migration helpers; supports SQLite with persistent connections.
+- **`models.py`**: Pydantic models for `AuditLog`, `RBACPolicy`, `ModelVersion`, `LLMCacheEntry`; validation rules and serialization.
+- **Storage layout**: `platform.db` (clients, projects, documents, tags, onedrive tokens) + `audit.db` (hash-chained audit trail) + `rbac.db` (roles/grants) + `model_versions.db` (deployment records) + `llm_cache.db` (persistent LLM response cache with TTL and LRU eviction).
+
+### 9. Agent Architecture (`src/agents/`)
+- **`prompts.py`**: System prompts for regulatory analysis, document review, cost estimation, pipeline inspection; structured output instructions with grounding rules.
+- **`graph.py`**: StateGraph definitions — `entry -> classify -> search -> narrow -> answer -> [review] -> verify -> [wide_search] -> end`; conditional edges; rescue-mode escalation; node tracing with `node` + `ms`.
+- **`router.py`**: LLM-based routing with confidence thresholds; selects agent pipeline based on query type; exposes `human_review` state.
+
+### 10. Search & Vector Store (`src/tools/`, `src/vector_store/`)
+- **`search.py`**: Hybrid search combining BM25 (k1=1.5, b=0.75) and vector similarity (`0.6*vector + 0.4*BM25`); keyword re-ranking; citation tracking; query variants; LLM rewrite support (flag-gated).
+- **`chroma.py`**: Dual-write (global + per-document collections); persistence; metadata filtering; batch ingestion with chunk tracking; collection management.
+
+### 11. Regulatory Radar (`src/regulatory/`)
+- **Source config**: SFC/HKMA circular feed configuration.
+- **Fixture-driven fetch adapter**: Offline-safe adapter for regulatory source fetching.
+- **Chunked ingestion**: Per-item collections tagged with `regulator`, `issuance_date`, `category`; auto-signals for document detection.
+- **Feed management**: Idempotent feed table with `poll` cycle; manual (`POST /poll`) and daily async (`asyncio`) scheduling.
+- **Recency-weighted compliance retrieval**: Retrieval weighted by recency; `/radar` page shows feed grouped by regulator with impact-summary slots.
+
+### 12. Document Ingestion (`scripts/ingest.py`)
+- **Multi-format support**: PDF, DOCX, TXT, Markdown extraction.
+- **Chunking**: Configurable chunk size (default 1000 chars) and overlap (default 200 chars).
+- **Progress tracking**: Chunk counts, error tracking, ingestion progress.
+- **Metadata linking**: Links chunks to document metadata; supports re-ingestion.
+
+### 13. Compliance & Governance (`src/compliance/` — referenced in backend)
+- **Audit log**: Tamper-evident SHA-256 hash-chained records in `audit.db`; integrity verification; regulator export.
+- **RBAC**: Role-based access control (`admin` to `viewer`) with per-user per-document grants; `read_all` checks.
+- **PII redaction**: Detects and redacts HK-specific PII (HKID, phone numbers, addresses, bank accounts, credit cards, email) with overlap-aware priority ordering.
+- **Explainability reports**: Renders pipeline trace into regulator-ready Markdown artifacts (per-node timing, rescue-path explanation, sources, confidence justification).
+- **Model version tracking**: `model_versions.db` records each deployment with config hash for freeze/rollback evidence.
+- **Email summary generator**: Reads audit trail; produces weekly/monthly Markdown reports (metrics, agent usage %, top queries) via `/api/summary`.
+
+### 14. Pipeline Inspector & Cost Dashboard (`frontend/src/app/telemetry/`, `/telemetry`)
+- **Pipeline Inspector component**: Expanded panel with confidence bar, agent path, per-node timing bars, node status tracking.
+- **Telemetry page** (`/telemetry`): Recent pipeline runs, cost cards, per-node token/cost tables, per-run traces.
+- **Cost tracking**: Per-node token accounting at DeepSeek rates (`$0.14` / 1M input, `$0.28` / 1M output tokens); bounded in-memory ring; thread-safe summary; reset endpoint.
+- **Structured logger**: JSON/text logs; pipeline filter injects query, agent type, node, latency context.
+
+### 15. Review Hub (`frontend/src/app/review-hub/`, `src/api/routes/review.py`)
+- **Review queue persistence**: `review_queue` database persistence with pending items.
+- **Approval flow**: Approve (delivers to user), edit-approve (replaces answer before delivery), reject (discards without delivery).
+- **Integration**: Rescue-path / low-confidence / error answers (or all answers when `ENABLE_HUMAN_REVIEW=on`) queued for review; approved answers stored in chat history; chat page shows pending-review notice.
+
+### 16. Workbench Apps (`frontend/src/app/workbench/`)
+- **Term Sheet Workbench** (`workbench/term-sheet`): Picks in-scope documents; extracts structured term-sheet data; shows result dashboard + audit trail.
+- **LP Report Workbench** (`workbench/lp-report`): Drafts quarterly LP reports from selected documents.
+- **Compliance Auditor** (`workbench/compliance-audit`): Audits for SFC/HKMA/AMLO-style compliance gaps.
+- **Filing Cabinet** (`workbench/filing-cabinet`): Drop target-company files into project workspaces; accepts `.docx`/`.xlsx` (parser existed).
+
+### 17. Standalone Domain Libraries (`src/agents/` — unwired but implemented)
+- **CashFlowForecaster**: Revenue/expense projection from financial-model documents.
+- **CovenantMonitor**: Covenant ratio breach/warning detection with severity classification.
+- **Entity linking**: Cross-document entity detection + linking.
+- **Currency & jurisdiction registry**: `Currency` / `Jurisdiction` enums; jurisdiction-to-regulation mapping (HKMA/SFC/AMLO, MAS, CSRC, SEC, FCA).
+
+---
+
 ## License
 
 MIT License
