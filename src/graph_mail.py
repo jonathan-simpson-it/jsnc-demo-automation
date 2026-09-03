@@ -25,6 +25,14 @@ _TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 _token_cache: dict[str, Any] = {"token": None, "expires_at": 0.0}
 
 
+DEMO_DB_PATH = "./data/graph_drafts.db"
+_ALLOWED_CONTENT_TYPES = ("text", "html")
+
+
+def _demo_db(db_path: str | None) -> str:
+    return db_path or DEMO_DB_PATH
+
+
 def configured() -> bool:
     return bool(
         settings.graph_tenant_id
@@ -159,12 +167,14 @@ def _demo_emails(limit: int = 50) -> list[dict]:
     return emails
 
 
-def _save_demo_draft(subject: str, body: str, to: list[str] | None) -> dict:
+def _save_demo_draft(
+    subject: str, body: str, to: list[str] | None, db_path: str | None = None
+) -> dict:
     """Keep demo drafts locally so the flow is visible end to end."""
     import sqlite3
     from datetime import datetime, timezone
 
-    conn = sqlite3.connect("./data/graph_drafts.db", timeout=5)
+    conn = sqlite3.connect(_demo_db(db_path), timeout=5)
     conn.execute(
         """CREATE TABLE IF NOT EXISTS graph_drafts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -217,14 +227,22 @@ def list_messages(limit: int = 50) -> list[dict]:
     return emails
 
 
-def create_draft(subject: str, body: str, to: list[str] | None = None) -> dict:
+def create_draft(
+    subject: str,
+    body: str,
+    to: list[str] | None = None,
+    content_type: str = "text",
+    db_path: str | None = None,
+) -> dict:
     """Create a draft message in the mailbox's Drafts folder (demo locally)."""
+    if content_type not in _ALLOWED_CONTENT_TYPES:
+        raise ValueError(f"content_type must be one of {_ALLOWED_CONTENT_TYPES}")
     if not configured():
-        return _save_demo_draft(subject, body, to)
+        return _save_demo_draft(subject, body, to, db_path)
     mailbox = _mailbox()
     payload: dict[str, Any] = {
         "subject": subject,
-        "body": {"contentType": "text", "content": body},
+        "body": {"contentType": content_type, "content": body},
         "importance": "normal",
     }
     if to:
@@ -237,3 +255,52 @@ def create_draft(subject: str, body: str, to: list[str] | None = None) -> dict:
         "subject": created.get("subject") or subject,
         "draft_link": created.get("webLink") or "",
     }
+
+
+def list_drafts(limit: int = 20, db_path: str | None = None) -> list[dict]:
+    """Return saved drafts — local demo store or the Graph Drafts folder."""
+    if not configured():
+        import sqlite3
+
+        conn = sqlite3.connect(_demo_db(db_path), timeout=5)
+        try:
+            rows = conn.execute(
+                "SELECT id, subject, to_recipients, created_at FROM graph_drafts "
+                "ORDER BY id DESC LIMIT ?",
+                (max(1, min(int(limit), 100)),),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [
+            {
+                "id": f"demo-draft-{r[0]}",
+                "subject": r[1],
+                "to": r[2] or "",
+                "created_at": r[3],
+                "demo": True,
+            }
+            for r in rows
+        ]
+    mailbox = _mailbox()
+    params = {
+        "$top": max(1, min(int(limit), 100)),
+        "$select": "id,subject,toRecipients,lastModifiedDateTime,webLink",
+    }
+    data = _get(f"/users/{mailbox}/mailFolders/Drafts/messages", params=params)
+    drafts = []
+    for msg in data.get("value", []):
+        to = ", ".join(
+            r.get("emailAddress", {}).get("address", "")
+            for r in (msg.get("toRecipients") or [])
+        )
+        drafts.append(
+            {
+                "id": msg.get("id"),
+                "subject": msg.get("subject") or "",
+                "to": to,
+                "created_at": msg.get("lastModifiedDateTime"),
+                "demo": False,
+                "draft_link": msg.get("webLink") or "",
+            }
+        )
+    return drafts
