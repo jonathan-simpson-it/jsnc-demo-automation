@@ -80,11 +80,11 @@ The Next.js app proxies `/api/*` requests to the FastAPI backend via `next.confi
 | `/documents` | **Documents** | Client → Project workspace tree sidebar with strict per-project RAG isolation; drop-anywhere upload queue with live per-file progress, OneDrive tab, assign modal, inline tagging |
 | `/workbench/term-sheet` | **Term Sheet Workbench** | Pick in-scope documents and extract structured term-sheet data into a result dashboard |
 | `/workbench/lp-report` | **LP Report Workbench** | Draft quarterly LP reports from selected documents |
-| `/workbench/compliance-audit` | **Compliance Auditor** | Audit documents for SFC/HKMA/AMLO-style compliance gaps |
-| `/workbench/filing-cabinet` | **Filing Cabinet** | Drop target-company files into project workspaces with the shared upload experience |
-| `/review-hub` | **Review Hub** | Approve, edit-approve, or reject queued AI answers before delivery |
-| `/telemetry` | **Pipeline & Cost** | Recent pipeline runs, per-node traces, token usage and DeepSeek cost analytics |
-| `/radar` | **Regulatory Radar** | Live SFC/HKMA circular feed with recency-weighted compliance retrieval |
+| `/workbench/compliance-audit` | **Compliance Auditor** | Audit documents against SFC, HKMA and AMLO expectations with cited findings and corrective actions |
+| `/workbench/filing-cabinet` | **Filing Cabinet** | Ingest and route target-company files into the right project workspaces |
+| `/review-hub` | **Review Hub** | Approve, edit, or reject AI answers before anything is delivered — humans in the loop |
+| `/telemetry` | **Pipeline & Cost** | Live pipeline traces, token usage, and DeepSeek cost analytics |
+| `/radar` | **Regulatory Radar** | Live SFC and HKMA circulars with recency-weighted retrieval — grounded in today's guidance |
 | `/eval` | **Eval Dashboard** | Accuracy metrics, per-document breakdown, question results with pass/fail, filters |
 | `/config` | **Configuration** | System status, API version, features list, agent types |
 | `/summary` | **Email Reports** | Week/month reports from the audit trail, agent usage, recent queries, email preview |
@@ -201,11 +201,11 @@ The `streamAgent()` function is an async generator that yields `StreamEvent` obj
 
 | Agent | Name | Description |
 |-------|------|-------------|
-| `due_diligence` | Due Diligence Agent | Analyze investment opportunities and conduct due diligence |
-| `term_sheet` | Term Sheet Extractor | Extract structured data from term sheets |
-| `lp_report` | LP Report Generator | Generate quarterly LP reports |
-| `compliance` | Compliance Checker | Check regulatory compliance of documents |
-| `cross_doc` | Cross-Document Comparison | Compare and synthesize information across multiple documents |
+| `due_diligence` | Due Diligence Agent | Analyse investment opportunities and surface the risks a senior analyst would catch. |
+| `term_sheet` | Term Sheet Extractor | Extract structured term-sheet data in seconds, not spreadsheets. |
+| `lp_report` | LP Report Generator | Quarterly LP reports drafted from the documents you already hold. |
+| `compliance` | Compliance Checker | Regulatory compliance checks grounded in the knowledge base — SFC, HKMA and AMLO-aware. |
+| `cross_doc` | Cross-Document Comparison | Compare and synthesise across documents — find the differences that change a deal. |
 
 ---
 
@@ -933,7 +933,7 @@ This platform is open source and works without a server-side key. Users add thei
 ### 16. Workbench Apps (`frontend/src/app/workbench/`)
 - **Term Sheet Workbench** (`workbench/term-sheet`): Picks in-scope documents; extracts structured term-sheet data; shows result dashboard + audit trail.
 - **LP Report Workbench** (`workbench/lp-report`): Drafts quarterly LP reports from selected documents.
-- **Compliance Auditor** (`workbench/compliance-audit`): Audits for SFC/HKMA/AMLO-style compliance gaps.
+- **Compliance Auditor** (`workbench/compliance-audit`): Audits documents against SFC, HKMA and AMLO expectations with cited findings and corrective actions.
 - **Filing Cabinet** (`workbench/filing-cabinet`): Drop target-company files into project workspaces; accepts `.docx`/`.xlsx` (parser existed).
 
 ### 17. Standalone Domain Libraries (`src/agents/` — unwired but implemented)

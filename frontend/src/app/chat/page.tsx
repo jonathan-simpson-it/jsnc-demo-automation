@@ -41,7 +41,7 @@ const AGENTS = [
   { value: "due_diligence", label: "Due Diligence" },
   { value: "term_sheet", label: "Term Sheet" },
   { value: "lp_report", label: "LP Report" },
-  { value: "compliance", label: "Compliance Auditor" },
+  { value: "compliance", label: "Compliance" },
   { value: "cross_doc", label: "Cross-Document" },
 ];
 
@@ -49,7 +49,7 @@ const AGENT_NAMES: Record<string, string> = {
   due_diligence: "Due Diligence Agent",
   term_sheet: "Term Sheet Extractor",
   lp_report: "LP Report Generator",
-  compliance: "Compliance Auditor",
+  compliance: "Compliance Checker",
   cross_doc: "Cross-Document Comparison",
 };
 

@@ -33,7 +33,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "AI Chat",
     category: "Applications",
     description:
-      "Chat with the PE AI assistant across project workspaces, with saved history.",
+      "Grounded answers across your workspace — every one cited, with pipeline transparency and saved history.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 6h20v14H14l-6 5v-5H6z" />
@@ -48,7 +48,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Documents",
     category: "Applications",
     description:
-      "Upload, tag, and assign documents to clients and projects.",
+      "Upload, tag, and assign documents to clients and projects — the knowledge base behind every answer.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M10 3h9l6 6v18a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
@@ -65,7 +65,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Eval Dashboard",
     category: "Applications",
     description:
-      "Question-level accuracy metrics with a per-document breakdown.",
+      "Question-level accuracy metrics with a per-document breakdown, so you can show the system earns your trust.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <line x1="5" y1="26" x2="27" y2="26" />
@@ -81,7 +81,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "Email Reports",
     category: "Applications",
     description:
-      "Generate weekly or monthly email-ready reports from the audit trail.",
+      "Weekly or monthly email-ready reports drawn from the tamper-evident audit trail.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="7" width="24" height="18" rx="2" />
@@ -95,7 +95,7 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     name: "System Config",
     category: "Applications",
     description:
-      "System status, active features, and registered agent types.",
+      "System status, active features, and registered agent types — full observability.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="16" cy="16" r="3" />
@@ -108,7 +108,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/chat?agent=due_diligence",
     name: "Due Diligence Agent",
     category: "Specialist Agents",
-    description: "Analyze investment opportunities and conduct due diligence",
+    description:
+      "Analyse investment opportunities and surface the risks a senior analyst would catch.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="14" cy="14" r="8" />
@@ -123,7 +124,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/chat?agent=term_sheet",
     name: "Term Sheet Extractor",
     category: "Specialist Agents",
-    description: "Extract structured data from term sheets",
+    description:
+      "Extract structured term-sheet data in seconds, not spreadsheets.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="6" y="4" width="20" height="24" rx="2" />
@@ -138,7 +140,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/chat?agent=lp_report",
     name: "LP Report Generator",
     category: "Specialist Agents",
-    description: "Generate quarterly LP reports",
+    description:
+      "Quarterly LP reports drafted from the documents you already hold.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="18" width="6" height="10" rx="1" />
@@ -153,7 +156,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/chat?agent=compliance",
     name: "Compliance Checker",
     category: "Specialist Agents",
-    description: "Check regulatory compliance of documents",
+    description:
+      "Regulatory compliance checks grounded in the knowledge base — SFC, HKMA and AMLO-aware.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M16 3 L28 9 L28 17 C28 23 22 28 16 30 C10 28 4 23 4 17 L4 9 Z" />
@@ -166,7 +170,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/chat?agent=cross_doc",
     name: "Cross-Document Comparison",
     category: "Specialist Agents",
-    description: "Compare and synthesize information across multiple documents",
+    description:
+      "Compare and synthesise across documents — find the differences that change a deal.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="6" width="12" height="16" rx="2" />
@@ -185,7 +190,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/workbench/term-sheet",
     name: "Term Sheet Workbench",
     category: "Workbenches",
-    description: "Extract and analyze term sheets from uploaded documents.",
+    description:
+      "Extract and analyse term sheets with a guided, reviewable workflow.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="6" y="4" width="20" height="24" rx="2" />
@@ -200,7 +206,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/workbench/lp-report",
     name: "LP Report Workbench",
     category: "Workbenches",
-    description: "Draft quarterly LP reports and investor narratives from documents.",
+    description:
+      "Draft quarterly LP reports and investor narratives from uploaded documents.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="18" width="6" height="10" rx="1" />
@@ -215,7 +222,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/workbench/compliance-audit",
     name: "Compliance Auditor",
     category: "Compliance & Risk",
-    description: "Audit documents for SFC, HKMA and AMLO-style compliance gaps.",
+    description:
+      "Audit documents against SFC, HKMA and AMLO expectations with cited findings and corrective actions.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M16 3 L28 9 L28 17 C28 23 22 28 16 30 C10 28 4 23 4 17 L4 9 Z" />
@@ -228,7 +236,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/review-hub",
     name: "Review Hub",
     category: "Compliance & Risk",
-    description: "Approve, edit, or reject AI answers before delivery.",
+    description:
+      "Approve, edit, or reject AI answers before anything is delivered — humans in the loop.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 26h20" />
@@ -242,7 +251,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/workbench/filing-cabinet",
     name: "Filing Cabinet",
     category: "Operations",
-    description: "Ingest and route target-company files into project workspaces.",
+    description:
+      "Ingest and route target-company files into the right project workspaces.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 6h8l2 2h10a2 2 0 0 1 2 2v14H4V6z" />
@@ -268,7 +278,8 @@ export const LAUNCHPAD_APPS: LaunchpadApp[] = [
     href: "/radar",
     name: "Regulatory Radar",
     category: "Compliance & Risk",
-    description: "Live SFC and HKMA circular feed with recency-weighted retrieval.",
+    description:
+      "Live SFC and HKMA circulars with recency-weighted retrieval — grounded in today's guidance.",
     icon: (
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="16" cy="16" r="12" />
