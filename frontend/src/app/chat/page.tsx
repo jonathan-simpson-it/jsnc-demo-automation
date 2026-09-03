@@ -235,6 +235,7 @@ function ChatInner() {
   const convScrollRef = useRef<HTMLDivElement>(null);
   const stickBottomRef = useRef(true);
   const justSwitchedRef = useRef(false);
+  const prevStreamingRef = useRef(false);
 
   // --- Composer: attachments + @-mentions ---
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
@@ -320,17 +321,18 @@ function ChatInner() {
     return () => window.clearTimeout(t);
   }, []);
 
-  // Auto-scroll rule: follow the conversation only while the user is already
-  // near the bottom (sticky). Entering a question while reading history above
-  // must not yank the view down; the composer is pinned, so idle submissions
-  // need no scrolling. Opening a conversation or starting a new chat jumps
-  // straight to the latest message (instant, no animation).
+  // Auto-scroll rule: the conversation follows only while the user is pinned
+  // to the bottom (within 8px). Entering a question never scrolls on its own:
+  // the submit moment (stream starting) is skipped, and content that arrives
+  // while a stream is already running or just finished only scrolls when the
+  // user is still at the bottom, so reading history above is never yanked.
+  // Opening a conversation or starting a new chat jumps instantly to the end.
   useEffect(() => {
     const el = convScrollRef.current;
     if (!el) return;
     const onScroll = () => {
       stickBottomRef.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+        el.scrollHeight - el.scrollTop - el.clientHeight <= 8;
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -346,10 +348,13 @@ function ChatInner() {
       stickBottomRef.current = true;
       return;
     }
+    const wasStreaming = prevStreamingRef.current;
+    prevStreamingRef.current = isStreaming;
+    if (isStreaming && !wasStreaming) return;
     if (stickBottomRef.current) {
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, streamingNode]);
 
   const { hasKey, serverKeyConfigured } = useApiKey();
   const showKeyPrompt = !hasKey && !serverKeyConfigured;
