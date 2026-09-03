@@ -61,3 +61,35 @@ def test_make_llm_uses_request_key(monkeypatch):
         reset_request_api_key(token)
     assert captured["api_key"] == "req-key-123"
     assert captured["temperature"] == 0.5
+
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from src.api.key_middleware import ApiKeyContextMiddleware
+
+
+def _capture_app():
+    inner = FastAPI()
+    seen = {}
+
+    @inner.get("/probe")
+    async def probe():
+        seen["key"] = get_request_api_key()
+        return {"ok": True}
+
+    wrapped = ApiKeyContextMiddleware(inner)
+    test_app = FastAPI()
+    test_app.mount("/", wrapped)
+    return TestClient(test_app), seen
+
+
+def test_middleware_sets_request_key():
+    client, seen = _capture_app()
+    client.get("/probe", headers={"X-API-Key": "  user-key-1  "})
+    assert seen["key"] == "user-key-1"
+
+
+def test_middleware_leaves_context_clean_without_header():
+    client, seen = _capture_app()
+    client.get("/probe")
+    assert seen["key"] is None

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
 from src.api.deps import set_vector_store
+from src.api.key_middleware import ApiKeyContextMiddleware
 from src.api.routes.agents import router as agents_router
 from src.api.routes.documents import router as documents_router
 from src.api.routes.summary import router as summary_router
@@ -52,6 +53,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(ApiKeyContextMiddleware)
 
 app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(agents_router, prefix="/api/agents", tags=["agents"])
