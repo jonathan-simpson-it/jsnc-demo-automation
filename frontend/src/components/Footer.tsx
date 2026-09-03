@@ -1,10 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Footer() {
+  const pathname = usePathname();
+  // The chat page is a full-height app shell; a marketing footer would
+  // force the prompt bar off the bottom of the viewport.
+  if (pathname?.startsWith("/chat")) return null;
   return (
     <footer className="site-footer border-t border-line mt-auto">
       <div className="container footer-inner">
-        {/* Brand — 2fr */}
+        {/* Brand (2fr) */}
         <div>
           <p className="footer-brand-large">
             Jonathan
@@ -16,7 +23,7 @@ export default function Footer() {
           </p>
         </div>
 
-        {/* Connect — 1fr */}
+        {/* Connect (1fr) */}
         <div>
           <p className="footer-heading">Connect</p>
           <ul className="footer-links">
@@ -32,7 +39,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Read — 1fr */}
+        {/* Read (1fr) */}
         <div>
           <p className="footer-heading">Read</p>
           <ul className="footer-links">
@@ -48,7 +55,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Help — 1fr */}
+        {/* Help (1fr) */}
         <div>
           <p className="footer-heading">Help</p>
           <ul className="footer-links">
@@ -61,7 +68,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Start — 1fr */}
+        {/* Start (1fr) */}
         <div>
           <p className="footer-heading">Start</p>
           <Link

@@ -24,7 +24,6 @@ import ChatMessage from "@/components/ChatMessage";
 import PipelineInspector from "@/components/PipelineInspector";
 import StatusBadge from "@/components/StatusBadge";
 import { useApiKey } from "@/components/ApiKeyProvider";
-import { KeyPrompt } from "@/components/KeySettings";
 
 interface Message {
   id: string;
@@ -202,7 +201,7 @@ function serverMessageToLocal(m: ConversationMessage): Message {
     const detail = content.replace(/^Error:\s*/i, "").trim().slice(0, 160);
     if (detail && /invalid|authentication|401|402/i.test(detail)) {
       content =
-        "Your request was rejected by the model service. Check the API key in the header button — it may be invalid or out of credit.";
+        "Your request was rejected by the model service. Check the API key in the header button; it may be invalid or out of credit.";
     } else if (detail) {
       content = `The model service couldn't complete this turn (${detail}). Add your API key with the header API key button, then try again.`;
     } else {
@@ -229,8 +228,8 @@ function ChatInner() {
       id: "welcome",
       role: "assistant",
       content: initialAgent
-        ? `Hello — I'm your ${AGENT_NAMES[initialAgent] || initialAgent}, tuned for private markets. Ask me anything about the documents in this workspace — every answer comes with its sources.`
-        : "Hello — I'm the Jonathan Simpson & Co. AI analyst for private markets. Ask me about due diligence, term sheets, LP reports, or SFC- and HKMA-aware compliance — grounded in the documents in this workspace.",
+        ? `Hello. I'm your ${AGENT_NAMES[initialAgent] || initialAgent}, tuned for private markets. Ask me anything about the documents in this workspace. Every answer comes with its sources.`
+        : "Hello. I'm the Jonathan Simpson & Co. AI analyst for private markets. Ask me about due diligence, term sheets, LP reports, or SFC- and HKMA-aware compliance. Answers are grounded in the documents in this workspace.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -328,11 +327,11 @@ function ChatInner() {
   }, []);
 
   // Auto-scroll rule: the conversation follows only while the user is pinned
-  // to the bottom (within 8px), and only for actual content changes — never
+  // to the bottom (within 8px), and only for actual content changes, never
   // for the act of sending. Pressing Enter does not move the view at all
   // (the submit moment is skipped), and pipeline node events (header labels
   // like "Classifying query") do not trigger scrolling either. When the
-  // final answer lands the view follows once — but only if the user is still
+  // final answer lands the view follows once, but only if the user is still
   // at the bottom, so reading history above is never yanked. Opening a
   // conversation or starting a new chat jumps instantly to the end.
   useEffect(() => {
@@ -368,7 +367,7 @@ function ChatInner() {
   }, [messages, isStreaming]);
 
   const { hasKey, serverKeyConfigured } = useApiKey();
-  const showKeyPrompt = !hasKey && !serverKeyConfigured;
+  const needsKey = !hasKey && !serverKeyConfigured;
 
   async function openConversation(conv: Conversation) {
     if (isStreaming) return;
@@ -456,7 +455,7 @@ function ChatInner() {
     if ((hasFiles || mentions.length > 0) && !activeProject) {
       setUploadNotice({
         ok: false,
-        text: "Attachments and @-mentions need a project workspace — pick one in the Chats rail, then retry.",
+        text: "Attachments and @-mentions need a project workspace. Pick one in the Chats rail, then retry.",
       });
       return;
     }
@@ -555,7 +554,7 @@ function ChatInner() {
               id: `e-${Date.now()}`,
               role: "assistant",
               content: rejected
-                ? "Your request was rejected by the model service. Check the API key in the header button — it may be invalid or out of credit."
+                ? "Your request was rejected by the model service. Check the API key in the header button; it may be invalid or out of credit."
                 : `The model service returned an error: ${detail}`,
             },
           ]);
@@ -778,6 +777,26 @@ function ChatInner() {
   const activeAgentName = AGENT_NAMES[agentType] || "PE AI Assistant";
   const threadLabel = workspaceLabel(threadProjectId, projects);
 
+  const agentRow = (
+    <div
+      role="group"
+      aria-label="Choose agent"
+      className="flex flex-wrap gap-1.5"
+    >
+      {AGENTS.map((a) => (
+        <button
+          key={a.value}
+          type="button"
+          aria-pressed={agentType === a.value}
+          onClick={() => setAgentType(a.value)}
+          className="agent-pill"
+        >
+          {a.label}
+        </button>
+      ))}
+    </div>
+  );
+
   // @-mention candidates: this project's documents first, then the tags that
   // appear on them. Filtered live by whatever follows the "@" being typed.
   const mentionCandidates: MentionItem[] = [];
@@ -954,14 +973,6 @@ function ChatInner() {
               History
             </button>
           )}
-          <img
-            src="/jsco-logo.png"
-            alt=""
-            width={24}
-            height={24}
-            className="rounded-full"
-            style={{ objectFit: "cover" }}
-          />
           <StatusBadge />
           <div style={{ flex: 1 }} />
           {streamingNode ? (
@@ -1010,15 +1021,25 @@ function ChatInner() {
                 style={{ margin: "auto" }}
               >
                 <div className="chat-avatar chat-avatar--lg" aria-hidden="true">
-                  <img src="/jsco-logo.png" alt="" width={80} height={80} />
+                  <svg
+                    width="42"
+                    height="42"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                  </svg>
                 </div>
                 <h2
                   style={{
                     marginTop: "1.5rem",
-                    fontFamily: "var(--font-display)",
-                    fontWeight: 400,
-                    fontSize: "clamp(1.7rem, 4vw, 2.4rem)",
-                    lineHeight: 1.15,
+                    fontWeight: 600,
+                    fontSize: "clamp(1.35rem, 3vw, 1.8rem)",
+                    lineHeight: 1.2,
                     letterSpacing: "-0.01em",
                     color: "var(--color-ink)",
                   }}
@@ -1054,16 +1075,22 @@ function ChatInner() {
                       <strong style={{ color: "var(--color-ink)", fontWeight: 600 }}>
                         Jonathan Simpson &amp; Co. AI analyst
                       </strong>{" "}
-                      for private markets — grounded in this workspace's
-                      documents, with sources on every answer. Ask about due
-                      diligence, term sheets, LP reports, or SFC- and HKMA-aware
-                      compliance.
+                      for private markets. Every answer is grounded in this
+                      workspace's documents and carries its sources. Ask about
+                      due diligence, term sheets, LP reports, or SFC- and
+                      HKMA-aware compliance.
                     </>
                   )}
                 </p>
                 <div
+                  className="flex flex-wrap justify-center gap-1.5"
+                  style={{ marginTop: "1.1rem", width: "100%" }}
+                >
+                  {agentRow}
+                </div>
+                <div
                   className="grid gap-3 w-full sm:grid-cols-2"
-                  style={{ marginTop: "2rem", textAlign: "left" }}
+                  style={{ marginTop: "0.9rem", textAlign: "left" }}
                 >
                   {welcomeSuggestions.map((s) => (
                     <button
@@ -1108,7 +1135,9 @@ function ChatInner() {
                   ) : (
                     <div key={m.id} className="flex items-start gap-3">
                       <div className="chat-avatar" aria-hidden="true">
-                        <img src="/jsco-logo.png" alt="" width={30} height={30} />
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                        </svg>
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <ChatMessage
@@ -1137,14 +1166,16 @@ function ChatInner() {
               {isStreaming && (
                 <div className="flex items-start gap-3">
                   <div className="chat-avatar" aria-hidden="true">
-                    <img src="/jsco-logo.png" alt="" width={30} height={30} />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    </svg>
                   </div>
                   <div
                     className="flex items-center justify-center"
                     style={{
                       background: "var(--color-surface)",
                       border: "1px solid var(--color-line)",
-                      borderRadius: "1.25rem",
+                      borderRadius: "var(--radius-md)",
                       minHeight: "2.6rem",
                       padding: "0 1rem",
                     }}
@@ -1172,24 +1203,9 @@ function ChatInner() {
           }}
         >
           <div className="mx-auto w-full max-w-[1400px]">
-            <div
-              role="group"
-              aria-label="Choose agent"
-              className="flex flex-wrap gap-1.5"
-              style={{ marginBottom: "0.45rem" }}
-            >
-              {AGENTS.map((a) => (
-                <button
-                  key={a.value}
-                  type="button"
-                  aria-pressed={agentType === a.value}
-                  onClick={() => setAgentType(a.value)}
-                  className="agent-pill"
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
+            {!isHero && (
+              <div style={{ marginBottom: "0.45rem" }}>{agentRow}</div>
+            )}
 
             <div className="composer-wrap">
               {/* @-mention popover: project documents + tags */}
@@ -1318,13 +1334,31 @@ function ChatInner() {
                 </div>
               )}
 
-              {/* First-run API key prompt (no user key and no server key) */}
-              {showKeyPrompt && (
-                <KeyPrompt
-                  onConfigure={() =>
-                    window.dispatchEvent(new Event("opencode:open-key-settings"))
-                  }
-                />
+              {needsKey && (
+                <div
+                  className="composer-unlock"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.6rem",
+                    flexWrap: "wrap",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                    Add an API key to start chatting.
+                  </span>
+                  <button
+                    type="button"
+                    className="button button--small"
+                    onClick={() =>
+                      window.dispatchEvent(new Event("opencode:open-key-settings"))
+                    }
+                  >
+                    Add API key to unlock prompt
+                  </button>
+                </div>
               )}
 
               <div className="composer">
@@ -1431,7 +1465,7 @@ function ChatInner() {
                       title={
                         threadProjectId === null
                           ? "Pick a project workspace in the Chats rail to attach files"
-                          : "Attach files — uploaded to this project's namespace on send"
+                          : "Attach files. Uploaded to this project's namespace on send"
                       }
                       disabled={
                         isStreaming || isUploading || threadProjectId === null
@@ -1471,12 +1505,14 @@ function ChatInner() {
                           ? `Message the ${AGENT_NAMES[agentType] || agentType}`
                           : "Message the PE AI assistant"
                       }
-                      disabled={isStreaming || isUploading}
+                      disabled={isStreaming || isUploading || needsKey}
+                      style={{ opacity: needsKey ? 0.6 : undefined }}
                     />
                     <button
                       type="button"
                       onClick={() => handleSend()}
                       disabled={
+                        needsKey ||
                         isStreaming ||
                         isUploading ||
                         (!input.trim() && stagedFiles.length === 0)
