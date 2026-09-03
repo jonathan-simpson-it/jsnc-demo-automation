@@ -43,3 +43,21 @@ def test_request_key_resets_cleanly():
     token = set_request_api_key("abc")
     reset_request_api_key(token)
     assert get_request_api_key() is None
+
+
+def test_make_llm_uses_request_key(monkeypatch):
+    captured = {}
+    import src.agents.graph as graph
+
+    class FakeChatDeepSeek:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(graph, "ChatDeepSeek", FakeChatDeepSeek)
+    token = set_request_api_key("req-key-123")
+    try:
+        graph._make_llm(temperature=0.5)
+    finally:
+        reset_request_api_key(token)
+    assert captured["api_key"] == "req-key-123"
+    assert captured["temperature"] == 0.5

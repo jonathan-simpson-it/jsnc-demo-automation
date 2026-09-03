@@ -24,6 +24,7 @@ from src.agents.prompts import (
     says_not_found,
 )
 from src.tools.search import create_search_tool
+from src.utils.api_key import resolve_api_key
 from src.utils.cost_tracker import cost_tracker
 from src.utils.llm_cache import llm_cache
 from src.vector_store.chroma import VectorStore
@@ -426,7 +427,7 @@ def _classify_keyword(query: str) -> str | None:
 # Shared helpers
 # ---------------------------------------------------------------------------
 def _make_llm(temperature: float = 0) -> ChatDeepSeek:
-    return ChatDeepSeek(model=settings.deepseek_model, temperature=temperature, api_key=settings.deepseek_api_key)
+    return ChatDeepSeek(model=settings.deepseek_model, temperature=temperature, api_key=resolve_api_key())
 
 
 def _format_history(history: list[dict], limit: int = 6) -> str:
