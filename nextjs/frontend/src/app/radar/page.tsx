@@ -23,13 +23,6 @@ function relativeWhen(iso: string | null): string {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-const SFC_SECTION_LABEL: Record<string, string> = {
-  news: "News",
-  "policy statement": "Policy statements",
-  "high shareholding": "High shareholding",
-  event: "Events",
-};
-
 export default function RadarPage() {
   const [items, setItems] = useState<RegulatoryFeedItem[] | null>(null);
   const [state, setState] = useState<RegulatoryState | null>(null);
@@ -91,26 +84,6 @@ export default function RadarPage() {
   const sfcRows = rows.filter((i) => i.regulator === "SFC");
   const hkmaRows = rows.filter((i) => i.regulator === "HKMA");
 
-  // SFC renders as its hub sections (news, policy statements, high
-  // shareholding, events). Buckets keep first-seen (feed) order.
-  function sfcSegments(): { label: string; items: RegulatoryFeedItem[] }[] {
-    const buckets: { label: string; items: RegulatoryFeedItem[] }[] = [];
-    const index = new Map<string, number>();
-    for (const it of sfcRows) {
-      const kind = it.kind || "news";
-      const label = SFC_SECTION_LABEL[kind] || kind;
-      let idx = index.get(kind);
-      if (idx === undefined) {
-        idx = buckets.length;
-        index.set(kind, idx);
-        buckets.push({ label, items: [] });
-      }
-      buckets[idx].items.push(it);
-    }
-    return buckets;
-  }
-  const sfcSegmentsList = sfcSegments();
-
   const sfcError = state?.last_status === "error";
   const dotColor = busy
     ? "bg-neutral-400"
@@ -136,18 +109,25 @@ export default function RadarPage() {
     count: number;
   }) {
     return (
-      <div className="sticky top-14 z-10 -mx-4 px-4 py-3 backdrop-blur bg-neutral-50/85 border-b border-neutral-200 flex items-center gap-3">
-        <RegulatorMark code={code} size={32} withName />
-        <div className="min-w-0 flex-1">
-          <div className="text-[0.95rem] font-bold text-neutral-900 tracking-tight leading-tight">
-            {title}
+      <div className="flex w-full items-center justify-between rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-32 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white p-2">
+            <RegulatorMark
+              code={code}
+              imgClassName="max-h-full max-w-full object-contain"
+            />
           </div>
-          <div className="text-xs text-neutral-400">
-            Official circulars &amp; news
+          <div className="flex min-w-0 flex-col justify-center">
+            <div className="text-base font-semibold text-neutral-900">
+              {title}
+            </div>
+            <div className="text-xs text-neutral-500">
+              Official circulars &amp; news
+            </div>
           </div>
         </div>
-        <span className="shrink-0 rounded-full bg-neutral-100 border border-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-600 tabular-nums">
-          {count} item{count === 1 ? "" : "s"}
+        <span className="flex-shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-xs font-mono font-medium text-neutral-700">
+          {count}
         </span>
       </div>
     );
@@ -282,44 +262,38 @@ export default function RadarPage() {
         )}
 
         {!loading && rows.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* SFC column */}
-            <div className="min-w-0">
+          <>
+            {/* Column headers, aligned with the feed grid below */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ColumnHeader
                 code="SFC"
                 title="SFC Circulars & News"
                 count={sfcRows.length}
               />
-              <div className="mt-4 space-y-4">
-                {sfcSegmentsList.map((seg) => (
-                  <div key={seg.label}>
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                      {seg.label} · {seg.items.length}
-                    </div>
-                    <div className="space-y-3">
-                      {seg.items.map((item) => (
-                        <FeedCard key={item.id} item={item} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* HKMA column */}
-            <div className="min-w-0">
               <ColumnHeader
                 code="HKMA"
                 title="HKMA Circulars & News"
                 count={hkmaRows.length}
               />
-              <div className="mt-4 space-y-3">
+            </div>
+
+            {/* Feed streams */}
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* SFC column */}
+              <div className="min-w-0 space-y-3">
+                {sfcRows.map((item) => (
+                  <FeedCard key={item.id} item={item} />
+                ))}
+              </div>
+
+              {/* HKMA column */}
+              <div className="min-w-0 space-y-3">
                 {hkmaRows.map((item) => (
                   <FeedCard key={item.id} item={item} />
                 ))}
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </section>
