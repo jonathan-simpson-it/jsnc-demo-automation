@@ -10,8 +10,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Root-anchored: the unanchored `lib/` form would also ignore source trees
+# like nextjs/frontend/src/lib/ (gitignore matches directories at any depth).
+/lib/
+/lib64/
 parts/
 sdist/
 var/
