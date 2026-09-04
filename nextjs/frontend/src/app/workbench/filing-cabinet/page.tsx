@@ -248,17 +248,9 @@ export default function FilingCabinetPage() {
           if (uploading) return;
           void handleFiles(e.dataTransfer.files);
         }}
-        style={{
-          width: "100%",
-          border: `2px dashed ${dragOver ? "var(--color-accent)" : "var(--color-line)"}`,
-          background: dragOver ? "var(--color-accent-soft)" : "transparent",
-          borderRadius: "var(--radius-lg)",
-          padding: "1.75rem 1rem",
-          textAlign: "center",
-          cursor: uploading ? "default" : "pointer",
-          transition: "all 220ms ease",
-          marginBottom: "1.5rem",
-        }}
+        className={`mb-6 flex min-h-[180px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+          dragOver ? "border-accent bg-accent-soft" : "border-neutral-300 bg-neutral-50/50"
+        } ${uploading ? "cursor-default opacity-70" : "cursor-pointer"}`}
       >
         {flash ? (
           <span
@@ -311,10 +303,10 @@ export default function FilingCabinetPage() {
           </span>
         ) : (
           <>
-            <p style={{ fontSize: "0.88rem", fontWeight: 500, marginBottom: "0.25rem" }}>
+            <p className="m-0 mb-1 text-center text-base font-medium text-neutral-900">
               {uploading ? "Uploading…" : "Drop files here or click to upload"}
             </p>
-            <p style={{ fontSize: "0.78rem", color: "var(--color-muted)", margin: 0 }}>
+            <p className="m-0 text-center text-xs font-mono text-neutral-500">
               PDF, TXT, MD, DOCX, XLSX
             </p>
           </>
