@@ -213,6 +213,17 @@ for arg in "$@"; do
     esac
 done
 
+# Frontend lives at ../nextjs/frontend in the combined dev workspace; when this
+# directory is the standalone Python repo (no sibling), run API-only by default.
+if [ -d "$(cd "$(dirname "$0")/.." && pwd)/nextjs/frontend" ]; then
+    FE_DIR="$(cd "$(dirname "$0")/../nextjs" && pwd)/frontend"
+else
+    FE_DIR=""
+    API_ONLY=true
+    echo -e "${YELLOW}No ../nextjs/frontend found — starting API only.${NC}"
+    echo -e "${YELLOW}   Run the Next.js app from its own repo (cd frontend && npm run dev).${NC}"
+fi
+
 LOCK_DIR="$SCRIPT_DIR/.run.lock.d"
 
 # ─── Main ───────────────────────────────────────────────────
@@ -243,7 +254,7 @@ trap cleanup INT TERM HUP
 # after a wrapper shell died without running its cleanup)
 pkill -TERM -f "uvicorn src.api.main" 2>/dev/null || true
 free_port "$API_PORT"
-if [ "$API_ONLY" = false ]; then
+if [ "$API_ONLY" = false ] && [ -n "$FE_DIR" ]; then
     free_port "$FRONTEND_PORT"
 fi
 
@@ -266,7 +277,7 @@ else
     if [ "$FORCE_INSTALL" = true ] || ! stamp_matches py pyproject.toml; then
         PY_STALE=true
     fi
-    if [ "$FORCE_INSTALL" = true ] || [ ! -d frontend/node_modules ] || ! stamp_matches fe frontend/package.json frontend/package-lock.json; then
+    if [ -n "$FE_DIR" ] && { [ "$FORCE_INSTALL" = true ] || [ ! -d "$FE_DIR/node_modules" ] || ! stamp_matches fe "$FE_DIR/package.json" "$FE_DIR/package-lock.json"; }; then
         FE_STALE=true
     fi
 
@@ -280,9 +291,9 @@ else
         fi
         if [ "$FE_STALE" = true ]; then
             echo -e "\n${CYAN}Installing frontend dependencies...${NC}"
-            (cd frontend && npm install --silent 2>/dev/null)
+            (cd "$FE_DIR" && npm install --silent 2>/dev/null)
             echo -e "${GREEN}OK: Frontend dependencies installed${NC}"
-            write_stamp fe frontend/package.json frontend/package-lock.json
+            write_stamp fe "$FE_DIR/package.json" "$FE_DIR/package-lock.json"
         fi
     else
         echo -e "\n${YELLOW}Step 2/4: Dependencies unchanged — skipping install${NC}"
@@ -307,7 +318,7 @@ echo ""
 # Re-free the ports right before launching. A long install/ingest step
 # gives other (stray) instances time to grab the ports in between.
 free_port "$API_PORT"
-if [ "$API_ONLY" = false ]; then
+if [ "$API_ONLY" = false ] && [ -n "$FE_DIR" ]; then
     free_port "$FRONTEND_PORT"
 fi
 
@@ -317,11 +328,11 @@ echo -e "${CYAN}   API docs: http://localhost:${API_PORT}/docs${NC}"
 "$PY" -m uvicorn src.api.main:app --host 0.0.0.0 --port "$API_PORT" --reload &
 API_PID=$!
 
-# Start Next.js frontend (unless --api-only)
-if [ "$API_ONLY" = false ]; then
+# Start Next.js frontend (unless --api-only or no sibling frontend found)
+if [ "$API_ONLY" = false ] && [ -n "$FE_DIR" ]; then
     echo -e "${GREEN}Next.js starting on http://localhost:${FRONTEND_PORT}${NC}"
     echo -e "${CYAN}   App:       http://localhost:${FRONTEND_PORT}${NC}"
-    (cd frontend && exec npx next dev --port "$FRONTEND_PORT") &
+    (cd "$FE_DIR" && exec npx next dev --port "$FRONTEND_PORT") &
     FRONTEND_PID=$!
 fi
 
@@ -333,7 +344,7 @@ for _ in $(seq 1 60); do
     if [ "$backend_up" = false ] && lsof -ti:"$API_PORT" >/dev/null 2>&1; then
         backend_up=true
     fi
-    if [ "$API_ONLY" = true ]; then
+    if [ "$API_ONLY" = true ] || [ -z "$FE_DIR" ]; then
         frontend_up=true
     elif [ "$frontend_up" = false ] && lsof -ti:"$FRONTEND_PORT" >/dev/null 2>&1; then
         frontend_up=true
@@ -346,7 +357,7 @@ for _ in $(seq 1 60); do
         echo -e "${RED}       Another process may hold the port — try: ./run.sh again${NC}"
         cleanup 1
     fi
-    if [ "$API_ONLY" = false ] && ! kill -0 "$FRONTEND_PID" 2>/dev/null && [ "$frontend_up" = false ]; then
+    if [ "$API_ONLY" = false ] && [ -n "$FE_DIR" ] && ! kill -0 "$FRONTEND_PID" 2>/dev/null && [ "$frontend_up" = false ]; then
         echo -e "${RED}ERROR: Frontend exited before listening on port $FRONTEND_PORT (see output above).${NC}"
         echo -e "${RED}       Another process may hold the port — try: ./run.sh again${NC}"
         cleanup 1
