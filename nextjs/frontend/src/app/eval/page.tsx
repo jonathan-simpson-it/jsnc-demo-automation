@@ -62,144 +62,93 @@ export default function EvalPage() {
   }
 
   return (
-    <section className="section">
-      <div className="container">
-        <div className="section-intro">
-          <span className="section-eyebrow">Evaluation</span>
-          <h1 style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 600, lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: "1rem" }}>
-            Accuracy dashboard.
-          </h1>
-          <p>
-            Performance metrics across {meta.questions || questions.length} test
-            questions, updated{" "}
-            {meta.timestamp
-              ? new Date(meta.timestamp).toLocaleDateString()
-              : "unknown"}
-            .
-          </p>
-        </div>
-
-        {/* Metric Cards */}
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-            marginBottom: "2.5rem",
-          }}
-        >
-          <StatCard value={`${formatPercent(meta.pct)}%`} label="Accuracy" />
-          <StatCard
-            value={formatCount(meta.questions || questions.length)}
-            label="Questions"
-          />
-          <StatCard
-            value={`${formatCount(meta.avg_latency_ms || meta.avg_ms_per_question || 0)}ms`}
-            label="Avg Latency"
-          />
-          <StatCard
-            value={meta.llm_node_calls ? formatCount(meta.llm_node_calls) : "n/a"}
-            label="LLM Calls"
-          />
-        </div>
-
-        {/* Accuracy Bar */}
-        <div
-          style={{
-            height: "0.5rem",
-            background: "var(--color-accent-soft)",
-            borderRadius: "0.125rem",
-            overflow: "hidden",
-            marginBottom: "2.5rem",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              background: "var(--color-accent)",
-              borderRadius: "0.125rem",
-              width: `${Math.min(100, Math.max(0, Number(meta.pct) || 0))}%`,
-              transition: "width 600ms ease",
-            }}
-          />
-        </div>
-
-        {/* Per-Document Breakdown */}
-        <div className="section-intro">
-          <span className="section-eyebrow">By Document</span>
-          <h2>Per-document breakdown.</h2>
-        </div>
-
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
-            marginBottom: "2.5rem",
-          }}
-        >
-          {Object.entries(byDoc)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, qs]) => {
-              const p = qs.filter((q) => q.pass ?? q.passed).length;
-              const pct = qs.length ? Math.round((100 * p) / qs.length) : 0;
-              const name = DOC_NAMES[k] || k;
-              return (
-                <div
-                  key={k}
-                  className="panel-card"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    textAlign: "center",
-                    minHeight: "7.5rem",
-                    padding: "1.25rem 1rem",
-                  }}
-                >
-                  <div
-                    title={name}
-                    style={{
-                      maxWidth: "100%",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      fontSize: "0.7rem",
-                      fontWeight: 600,
-                      letterSpacing: "0.09em",
-                      textTransform: "uppercase",
-                      color: "var(--color-muted)",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
-                    {name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "clamp(1.5rem, 3vw, 1.9rem)",
-                      fontWeight: 700,
-                      lineHeight: 1.15,
-                      letterSpacing: "-0.02em",
-                      color: "var(--color-ink)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {pct}%
-                  </div>
-                  <div
-                    style={{
-                      marginTop: "0.25rem",
-                      fontSize: "0.72rem",
-                      color: "var(--color-muted)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {p}/{qs.length}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
+    <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <span className="section-eyebrow" style={{ marginBottom: "0.5rem" }}>
+          Evaluation
+        </span>
+        <h1 className="mb-2 text-2xl font-bold tracking-tight text-neutral-900">
+          Accuracy dashboard.
+        </h1>
+        <p className="mb-0 max-w-2xl text-sm text-neutral-500">
+          Performance metrics across {meta.questions || questions.length} test
+          questions, updated{" "}
+          {meta.timestamp
+            ? new Date(meta.timestamp).toLocaleDateString()
+            : "unknown"}
+          .
+        </p>
       </div>
-    </section>
+
+      {/* Overview metric cards (accuracy bar lives inside the first card) */}
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          value={`${formatPercent(meta.pct)}%`}
+          label="Accuracy"
+          bar={Number(meta.pct) || 0}
+        />
+        <StatCard
+          value={formatCount(meta.questions || questions.length)}
+          label="Questions"
+        />
+        <StatCard
+          value={`${formatCount(meta.avg_latency_ms || meta.avg_ms_per_question || 0)}ms`}
+          label="Avg Latency"
+        />
+        <StatCard
+          value={meta.llm_node_calls ? formatCount(meta.llm_node_calls) : "n/a"}
+          label="LLM Calls"
+        />
+      </div>
+
+      {/* Per-document breakdown */}
+      <h2 className="mb-4 text-lg font-semibold tracking-tight text-neutral-900">
+        Per-document breakdown.
+      </h2>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        {Object.entries(byDoc)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, qs]) => {
+            const p = qs.filter((q) => q.pass ?? q.passed).length;
+            const pct = qs.length ? Math.round((100 * p) / qs.length) : 0;
+            const name = DOC_NAMES[k] || k;
+            return (
+              <div
+                key={k}
+                title={`${name}: ${p}/${qs.length} passed`}
+                className="flex h-full flex-col justify-between rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm transition-colors hover:border-neutral-300"
+              >
+                <div className="truncate text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {name}
+                </div>
+                <div className="my-1 text-2xl font-bold text-neutral-900">
+                  {pct}%
+                </div>
+                <div className="text-xs font-mono font-medium text-neutral-600">
+                  {p}/{qs.length}
+                </div>
+                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
+                  <div
+                    className={`h-full rounded-full ${
+                      pct >= 100 ? "bg-emerald-600" : "bg-neutral-900"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Compact footer */}
+      <footer className="mt-12 flex items-center justify-between border-t border-neutral-200/80 pt-6 text-xs text-neutral-500">
+        <span>
+          Accuracy dashboard · {meta.questions || questions.length} questions
+        </span>
+        <span>&copy; {new Date().getFullYear()} Jonathan Simpson &amp; Co.</span>
+      </footer>
+    </div>
   );
 }
