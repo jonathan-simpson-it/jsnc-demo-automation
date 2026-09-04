@@ -134,17 +134,6 @@ function ChevronsRightIcon({ size = 14 }: IconProps) {
   );
 }
 
-function CloudUploadIcon({ size = 18 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 14.9A5 5 0 0 1 7 5.5a7 7 0 0 1 13.4 2.5 4.5 4.5 0 0 1 .6 9" />
-      <path d="M12 12v9" />
-      <path d="M8 17l4-4 4 4" />
-    </svg>
-  );
-}
-
 function PlusIcon({ size = 14 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -1254,12 +1243,12 @@ export default function DocumentsPage() {
                       handleFiles(e.dataTransfer.files);
                     }}
                     aria-describedby="upload-hint"
-                    className={`w-full rounded-xl border-2 border-dashed p-8 text-center transition-all ${
+                    className={`flex min-h-[180px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
                       uploading
-                        ? "cursor-default border-line bg-surface"
+                        ? "cursor-default border-neutral-300 bg-neutral-50/50 opacity-70"
                         : dragOver
                           ? "cursor-copy border-accent bg-accent-soft"
-                          : "cursor-pointer border-line bg-surface hover:border-neutral-400"
+                          : "cursor-pointer border-neutral-300 bg-neutral-50/50"
                     }`}
                   >
                     {uploading ? (
@@ -1322,26 +1311,32 @@ export default function DocumentsPage() {
                         </span>
                       </span>
                     ) : (
-                      <span className="flex flex-col items-center gap-1">
-                        <span className="text-accent" style={{ lineHeight: 0 }}>
-                          <CloudUploadIcon size={26} />
-                        </span>
-                        <span className="mt-2 text-sm font-medium text-ink">
+                      <>
+                        <p className="m-0 mb-1 text-center text-base font-medium text-neutral-900">
                           Drop files here or click to browse
-                        </span>
-                        <span className="text-xs text-muted">
+                        </p>
+                        <p className="m-0 text-center text-xs font-mono text-neutral-500">
                           PDF · TXT · MD · DOCX · XLSX, ingested into this workspace
-                        </span>
-                      </span>
+                        </p>
+                      </>
                     )}
                   </button>
-                  <p
-                    id="upload-hint"
-                    className="mt-2 text-center text-[0.72rem] text-muted"
-                  >
-                    Target: {activeProject.name}
-                    {activeNs ? ` · namespace ${activeNs}` : ""}
-                  </p>
+                  <div className="my-3 flex w-full items-center justify-center">
+                    <span
+                      id="upload-hint"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200/60 bg-neutral-100/80 px-3 py-1 text-center font-mono text-xs text-neutral-500"
+                    >
+                      <span className="text-neutral-400">Target:</span>
+                      {activeProject.name}
+                      {activeNs ? (
+                        <>
+                          <span className="text-neutral-300">•</span>
+                          <span className="text-neutral-400">namespace</span>
+                          {activeNs}
+                        </>
+                      ) : null}
+                    </span>
+                  </div>
 
                   {/* Live upload queue */}
                   {uploads.length > 0 && (
@@ -1481,20 +1476,22 @@ export default function DocumentsPage() {
               {activeTab === "onedrive" && (
                 <section aria-label="Import from OneDrive">
                   {!odConnected ? (
-                    <div className="rounded-xl border border-line bg-surface px-8 py-10 text-center">
-                      <p className="text-[0.92rem] font-medium text-ink">
+                    <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-neutral-200/80 bg-white p-10 text-center md:p-12 dark:bg-neutral-900">
+                      <p className="mb-2 text-base font-semibold text-neutral-900">
                         Connect your OneDrive to import documents.
                       </p>
-                      <p className="mx-auto mt-1 max-w-md text-[0.78rem] text-muted">
+                      <p className="mb-6 max-w-md text-sm text-neutral-500">
                         Requires a Microsoft account with Files.Read.All
                         permission.
                       </p>
-                      <button
-                        onClick={connectOneDrive}
-                        className="button button--solid mt-5"
-                      >
-                        Connect OneDrive
-                      </button>
+                      <div className="mb-0 mt-2 flex items-center justify-center gap-3">
+                        <button
+                          onClick={connectOneDrive}
+                          className="button button--solid"
+                        >
+                          Connect OneDrive
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="overflow-hidden rounded-xl border border-line bg-surface">
