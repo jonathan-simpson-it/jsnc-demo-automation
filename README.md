@@ -20,6 +20,7 @@
 - [Quick Start](#quick-start)
 - [Testing](#testing)
 - [Configuration](#configuration)
+- [Repository split (2026-09-04)](#repository-split-2026-09-04)
 - [Progress Log](#progress-log)
 
 ---
@@ -923,6 +924,23 @@ This platform is open source and works without a server-side key. Users add thei
 - **CovenantMonitor**: Covenant ratio breach/warning detection with severity classification.
 - **Entity linking**: Cross-document entity detection + linking.
 - **Currency & jurisdiction registry**: `Currency` / `Jurisdiction` enums; jurisdiction-to-regulation mapping (HKMA/SFC/AMLO, MAS, CSRC, SEC, FCA).
+
+---
+
+## Repository split (2026-09-04)
+
+This repository is the combined dev workspace and archive. Production ships as
+**two separate repositories** that talk by URL (`/api/*` proxied via
+`BACKEND_URL` — see [docs/deploy.md](docs/deploy.md)):
+
+- [`jonathan-simpson-it/jsnc-demo-automation-nextjs`](https://github.com/jonathan-simpson-it/jsnc-demo-automation-nextjs) — the Next.js app (`nextjs/` folder; Vercel, Root Directory `frontend`)
+- [`jonathan-simpson-it/jsnc-demo-automation-python`](https://github.com/jonathan-simpson-it/jsnc-demo-automation-python) — the FastAPI backend (`python/` folder; always-on host via `python/Dockerfile`)
+
+Both repos were seeded on 2026-09-04 with a single squashed commit from the
+`nextjs/` and `python/` subtrees (the Astro marketing site was removed the same
+day — Next.js serves the marketing pages as static routes beside the demo).
+Development in this workspace is unchanged: `cd python && ./run.sh` starts both
+tiers.
 
 ---
 
