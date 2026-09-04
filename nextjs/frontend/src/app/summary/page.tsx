@@ -79,9 +79,9 @@ interface FeedItem {
 }
 
 const badgeStyles: Record<BadgeTone, string> = {
-  sfc: "border border-neutral-200/80 bg-neutral-100 text-neutral-700",
-  hkma: "border border-neutral-200/80 bg-neutral-100 text-neutral-700",
-  mail: "border border-neutral-200/80 bg-white text-neutral-500",
+  sfc: "bg-neutral-100 text-neutral-700",
+  hkma: "bg-neutral-100 text-neutral-700",
+  mail: "bg-neutral-100 text-neutral-700",
 };
 
 function kindLabel(regulator: string | null | undefined, kindName: string | null | undefined): string {
@@ -111,7 +111,7 @@ function radarTs(day: string | null): number {
 function Badge({ tone, label }: { tone: BadgeTone; label: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide ${badgeStyles[tone]}`}
+      className={`inline-flex flex-shrink-0 select-none items-center justify-center whitespace-nowrap rounded bg-neutral-100 px-2 py-0.5 font-mono text-[11px] font-medium text-neutral-700 ${badgeStyles[tone]}`}
     >
       {label}
     </span>
@@ -652,36 +652,32 @@ export default function SummaryPage() {
                   </p>
                 </div>
               ) : (
-                <ul className="max-h-[46rem] divide-y divide-neutral-100 overflow-y-auto">
+                <ul className="max-h-[46rem] overflow-y-auto">
                   {tabItems.map((it) => (
                     <li
                       key={it.id}
-                      className="group px-4 py-3.5 transition-colors hover:bg-neutral-50 sm:px-5"
+                      className="group flex w-full min-w-0 items-center gap-3 border-b border-neutral-100 px-2 py-3 transition-colors hover:bg-neutral-50/60"
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge tone={it.badge} label={it.label} />
-                            <a
-                              href={it.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={it.title}
-                              className="min-w-0 max-w-full truncate text-[0.88rem] font-semibold text-neutral-900 transition-colors group-hover:underline hover:text-black"
-                            >
-                              {it.title}
-                            </a>
-                          </div>
-                          {it.snippet && (
-                            <p className="mt-1 max-w-xl truncate text-sm text-neutral-500">
-                              {it.snippet}
-                            </p>
-                          )}
-                        </div>
-                        <span className="shrink-0 pt-0.5 text-xs whitespace-nowrap text-neutral-400">
-                          {it.meta}
-                        </span>
+                      <Badge tone={it.badge} label={it.label} />
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={it.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={it.title}
+                          className="block truncate text-sm font-semibold text-neutral-900 transition-colors group-hover:underline hover:text-black"
+                        >
+                          {it.title}
+                        </a>
+                        {it.snippet && (
+                          <p className="truncate text-xs text-neutral-500">
+                            {it.snippet}
+                          </p>
+                        )}
                       </div>
+                      <span className="ml-auto flex-shrink-0 whitespace-nowrap font-mono text-xs text-neutral-400">
+                        {it.meta}
+                      </span>
                     </li>
                   ))}
                 </ul>
