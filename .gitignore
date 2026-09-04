@@ -34,30 +34,17 @@ env/
 # Environment
 .env
 
-# Data
-data/chroma/
-data/uploads/
-frontend/data/
-*.db
-*.sqlite3
-
 # Testing
 .pytest_cache/
 htmlcov/
 .coverage
 coverage.xml
 
-# Node
-frontend/node_modules/
-frontend/.next/
-!frontend/src/lib/
-
 # OS
 .DS_Store
 Thumbs.db
 .freebuff/
 .playwright-mcp/
-frontend/tsconfig.tsbuildinfo
 
 # Dev stamps
 .run-stamps/
