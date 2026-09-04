@@ -333,6 +333,19 @@ export interface ComposerDraft {
   period: string;
 }
 
+export type ReplyIntent =
+  | "acknowledge"
+  | "clarify"
+  | "compliance"
+  | "custom";
+
+export interface ReplyDraft {
+  subject: string;
+  body: string;
+  to: string[];
+  generated_by: "ai" | "template";
+}
+
 export interface SavedDraft {
   id: string;
   subject: string;

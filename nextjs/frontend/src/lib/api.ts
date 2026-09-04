@@ -26,6 +26,8 @@ import type {
   ComposerDraft,
   EmailTemplateKey,
   EmailTone,
+  ReplyDraft,
+  ReplyIntent,
   SavedDraft,
   UploadResult,
 } from "./types";
@@ -383,6 +385,19 @@ export const generateAiDraft = (payload: {
   to: string[];
 }) =>
   apiFetch<ComposerDraft>("/api/graph/mail/draft/generate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const generateAiReply = (payload: {
+  sender_name: string;
+  sender_email: string;
+  subject: string;
+  body: string;
+  intent: ReplyIntent;
+  instructions: string;
+}) =>
+  apiFetch<ReplyDraft>("/api/graph/mail/reply/generate", {
     method: "POST",
     body: JSON.stringify(payload),
   });
