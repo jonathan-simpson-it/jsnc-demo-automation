@@ -1,7 +1,7 @@
 # PE AI Engineering Platform
 
 > AI-powered Private Equity workflow automation with RAG and multi-agent systems.
-> Three-tier stack: Astro marketing site, Next.js dynamic app, FastAPI backend.
+> Two-tier stack: a Next.js app (marketing pages + live demo) and a FastAPI backend.
 
 ---
 
@@ -28,24 +28,23 @@
 
 ```mermaid
 flowchart LR
-    M["Astro Marketing Site (web/)<br/>static: services, blog, work, contact"]
-    N["Next.js App (frontend/) · port 3000<br/>chat, documents, eval, config, summary"]
-    B["FastAPI Backend (src/api/) · port 8000<br/>REST + SSE: agents, RAG, document mgmt, audit"]
-    C["ChromaDB vectors<br/>(data/chroma, per-document collections)"]
-    S[("SQLite<br/>(data/*.db)")]
+    N["Next.js App (nextjs/frontend/) · Vercel<br/>marketing pages + demo (chat, documents, eval, config, summary)"]
+    B["FastAPI Backend (python/) · port 8000<br/>REST + SSE: agents, RAG, document mgmt, audit"]
+    C["ChromaDB vectors<br/>(python/data/chroma, per-document collections)"]
+    S[("SQLite<br/>(python/data/*.db)")]
 
-    M -. "links to tool" .-> N
-    N -- "/api/* rewrites" --> B
+    N -- "/api/* proxied via BACKEND_URL" --> B
     B <--> C
     B <--> S
 ```
 
-**Why three tiers?**
-- **Astro** handles static marketing pages (services, blog, work, contact) with zero client JS
-- **Next.js** handles dynamic application pages (chat, documents, eval) with React state and streaming
+**Why two tiers?**
+- **Next.js** serves the marketing pages as static routes (services, blog, work, products, applications, contact, support) plus the dynamic demo pages (chat, documents, eval, config, summary), all in one App Router app
 - **FastAPI** is a pure API server -- no HTML rendering, no static files, just JSON endpoints
 
-The Next.js app proxies `/api/*` requests to the FastAPI backend via `next.config.js` rewrites, so the frontend never needs to know the backend URL.
+The Next.js app proxies `/api/*` requests to the FastAPI backend via `next.config.js` rewrites whose destination honors the `BACKEND_URL` environment variable (default `http://127.0.0.1:8000` locally), so the frontend never needs to know the backend URL.
+
+**Production layout:** this repository is the combined dev workspace and archive. The two tiers ship as separate repositories that talk by URL: [`jonathan-simpson-it/jsnc-demo-automation-nextjs`](https://github.com/jonathan-simpson-it/jsnc-demo-automation-nextjs) (Next.js on Vercel) and [`jonathan-simpson-it/jsnc-demo-automation-python`](https://github.com/jonathan-simpson-it/jsnc-demo-automation-python) (backend on an always-on host). See `docs/deploy.md`.
 
 ---
 
@@ -53,10 +52,9 @@ The Next.js app proxies `/api/*` requests to the FastAPI backend via `next.confi
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| **Next.js** | >=14.2 | Dynamic web application (App Router, TypeScript, Tailwind) |
+| **Next.js** | >=14.2 | Marketing site + dynamic web application (App Router, TypeScript, Tailwind) |
 | **React** | >=18.3 | UI framework |
 | **Tailwind CSS** | >=3.4 | Utility-first CSS with JS\&C custom theme |
-| **Astro** | latest | Static marketing site (unchanged) |
 | **FastAPI** | >=0.115 | REST API backend (async, auto-docs) |
 | **LangGraph** | >=0.2 | Agent workflow orchestration (StateGraph) |
 | **LangChain** | >=0.3 | LLM framework, tools, document handling |
@@ -489,69 +487,34 @@ Retrieval is isolated by project: when a conversation belongs to a project, the 
 ## Project Structure
 
 ```
-rag-langraph-langchain/
-├── config/
-│   └── settings.py               # Pydantic settings: all env vars + feature flags
-├── src/
-│   ├── agents/                   # Graph pipeline, router, wrappers, domain libs
-│   │   ├── graph.py              # StateGraph: classify→search→narrow→answer→review→verify→wide_search
-│   │   ├── router.py             # RouterAgent: invoke + SSE streaming
-│   │   ├── prompts.py            # Shared prompts, grounding rules, output parsers
-│   │   ├── due_diligence.py      # Thin agent wrappers over the shared graph
-│   │   ├── term_sheet.py  lp_report.py  compliance.py
-│   │   ├── cashflow.py  covenant.py  entities.py   # Standalone analytic libs (unwired)
-│   ├── tools/                    # Retrieval tooling
-│   │   ├── search.py             # LangChain search tool: doc detection + hybrid search
-│   │   ├── bm25.py               # Pure-Python BM25 scorer
-│   │   └── reranker.py           # Keyword-precision re-ranker
-│   ├── vector_store/
-│   │   └── chroma.py             # Dual-write global + per-document collections
-│   ├── ingestion/                # PDF/TXT/MD loading, chunking, tables, summaries, versioning
-│   ├── core/
-│   │   ├── models.py             # Pydantic models
-│   │   ├── constants.py          # Enums: agent types, currencies, jurisdictions, ...
-│   │   └── database.py           # SQLite: clients, projects, tags, documents, onedrive
-│   ├── compliance/               # audit, rbac, redaction, explain, versioning, summary
-│   ├── regulatory/               # SFC/HKMA sources, client, ingest, scheduler
-│   ├── utils/                    # llm_cache, cost_tracker, confidence, doc_signals, logger, telemetry
-│   └── api/
-│       ├── main.py               # FastAPI app (registers all routers)
-│       ├── deps.py               # Dependency injection (vector store, router)
-│       └── routes/               # agents, documents, clients, projects, onedrive, summary
-├── web/                          # Astro marketing site (unchanged)
-├── frontend/                     # Next.js application
-│   └── src/
-│       ├── app/                  # App Router pages
-│       │   ├── page.tsx          # Agent launcher homepage
-│       │   ├── layout.tsx        # Root layout with Header/Footer
-│       │   ├── globals.css       # JS&C design tokens + components
-│       │   ├── chat/page.tsx     # Streaming chat with agent pre-select + suggestions
-│       │   ├── documents/        # Client/project/tag management + OneDrive
-│       │   ├── eval/             # Accuracy dashboard
-│       │   ├── config/           # System overview
-│       │   └── summary/          # Email reports
-│       ├── components/           # Header, Footer, StatusBadge, ChatMessage, PipelineInspector
-│       └── lib/
-│           ├── api.ts            # API client (fetch, SSE, CRUD, OneDrive)
-│           ├── types.ts          # TypeScript interfaces
-│           └── utils.ts          # Citation parser, trace summary, formatting
-├── data/
-│   ├── platform.db               # Clients, projects, documents, tags, OneDrive tokens
-│   ├── audit.db                  # Hash-chained audit trail
-│   ├── rbac.db                   # Roles and document grants
-│   ├── model_versions.db         # Model deployment records
-│   ├── llm_cache.db              # Persistent LLM response cache
-│   ├── sample/                   # Sample PE documents
-│   ├── uploads/                  # User-uploaded documents
-│   └── chroma/                   # ChromaDB persistence
-├── tests/                        # 124 tests across 27 files (pytest + Playwright)
-├── scripts/                      # ingest, eval_qa, eval_tricky, verify_changes
-├── run.sh                        # Starts both FastAPI and Next.js
-├── pyproject.toml                # Python dependencies
-├── .env.example                  # Documented environment variables
+pe-ai-engineering/                # Combined dev workspace (archive; see docs/deploy.md)
+├── python/                       # FastAPI backend — own repo in production
+│   ├── config/settings.py        # Pydantic settings: env vars + feature flags
+│   ├── src/                      # agents, tools, vector_store, ingestion, api, ...
+│   ├── tests/                    # pytest suite
+│   ├── scripts/                  # ingest, eval_qa, eval_tricky, verify_changes
+│   ├── data/sample/              # Sample PE documents (runtime state lives outside git)
+│   ├── run.sh                    # Starts FastAPI (and the frontend in the combined workspace)
+│   ├── Dockerfile                # Container for the always-on backend host
+│   ├── pyproject.toml            # Python dependencies
+│   └── .env.example              # Documented environment variables
+├── nextjs/                       # Next.js app — own repo in production
+│   ├── frontend/                 # App Router application (marketing + demo)
+│   │   └── src/
+│   │       ├── app/              # Demo: /, /chat, /documents, /eval, /config, /summary, ...
+│   │       │                     # Marketing: /services, /work, /blog, /products, /applications, /contact, /support
+│   │       ├── content/          # site.ts, blog.ts, projects.ts (marketing data)
+│   │       ├── components/       # Header, Footer, marketing/*, ChatMessage, ...
+│   │       └── lib/              # api.ts (API client), types.ts, utils.ts, dates.ts
+│   ├── scripts/                  # fetch-regulator-logos.sh
+│   └── .gitignore                # Node/.next/.env hygiene for the split repo
+├── docs/
+│   ├── deploy.md                 # Two-repo production deployment runbook
+│   └── superpowers/plans/        # Implementation plans
 ├── DESIGN-jonathansimpson.md     # JS&C design system spec
+├── newDESIGN-nonai-look-non-rounded.md  # Demo design spec
 ├── devano.md                     # Project rules (all diagrams in Mermaid)
-└── docs/superpowers/plans/       # Implementation plans (UIplan.md)
+└── README.md                     # This file — combined-workspace overview
 ```
 
 ---
@@ -567,45 +530,48 @@ rag-langraph-langchain/
 ### Installation
 
 ```bash
-# Clone
+# Clone the combined dev workspace
 git clone <repo-url>
-cd rag-langgraph-langchain
+cd pe-ai-engineering
 
-# Python
+# Python backend (in python/)
+cd python
 python -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
 
-# Frontend
-cd frontend && npm install && cd ..
+# Next.js frontend (in nextjs/frontend/)
+cd ../nextjs/frontend && npm install
 
 # Environment
-cp .env.example .env
+cd ../../python && cp .env.example .env
 # Edit .env and set DEEPSEEK_API_KEY
 ```
 
 ### Run Everything
 
 ```bash
-# Single command starts both servers
-./run.sh
+# From the combined workspace, one command starts backend + frontend
+cd python && ./run.sh
 
 # Or individually:
-# Backend:  uvicorn src.api.main:app --reload --port 8000
-# Frontend: cd frontend && npm run dev
+# Backend:  cd python && uvicorn src.api.main:app --reload --port 8000
+# Frontend: cd nextjs/frontend && npm run dev
 ```
 
 - **Frontend**: http://localhost:3000
 - **Backend API docs**: http://localhost:8000/docs
 
+Production deployment (Vercel + an always-on backend host) is two separate repos that talk by URL: see **docs/deploy.md**.
+
 ### Run with flags
 
 ```bash
-./run.sh --skip-install     # Skip pip install
-./run.sh --skip-ingest      # Skip document ingestion
-./run.sh --api-only         # Backend only (no Next.js)
-./run.sh --api-port=8001    # Override backend port (default: 8000)
-./run.sh --frontend-port=3001  # Override frontend port (default: 3000)
+cd python && ./run.sh --skip-install     # Skip pip install
+cd python && ./run.sh --skip-ingest      # Skip document ingestion
+cd python && ./run.sh --api-only         # Backend only (no Next.js)
+cd python && ./run.sh --api-port=8001    # Override backend port (default: 8000)
+cd python && ./run.sh --frontend-port=3001  # Override frontend port (default: 3000)
 ```
 
 ---
