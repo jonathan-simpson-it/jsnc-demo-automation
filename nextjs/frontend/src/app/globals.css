@@ -1226,6 +1226,7 @@ main:has(.kb-shell) {
   --color-accent: #80988f;
   --color-accent-soft: #e3e9e6;
   --font-body: var(--font-sans);
+  --text-h1: clamp(1.8rem, 4.5vw, 2.6rem);
   --text-h2: clamp(1.4rem, 3.8vw, 2rem);
   --text-body: clamp(0.88rem, 1.2vw, 1rem);
   --text-small: clamp(0.72rem, 1vw, 0.78rem);
