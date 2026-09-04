@@ -1,5 +1,5 @@
 interface Props {
-  tags: string[];
+  tags: readonly string[];
 }
 
 export default function ChipList({ tags }: Props) {
