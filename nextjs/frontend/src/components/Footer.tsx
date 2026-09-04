@@ -12,7 +12,12 @@ function isMarketingPath(pathname: string): boolean {
 export default function Footer() {
   const pathname = usePathname();
   const marketing = isMarketingPath(pathname ?? "");
-  if (pathname?.startsWith("/documents")) return null;
+  if (
+    pathname?.startsWith("/documents") ||
+    pathname?.startsWith("/mailbox") ||
+    pathname?.startsWith("/eval")
+  )
+    return null;
   const columns = marketing
     ? {
         tagline: siteConfig.brandTagline,
